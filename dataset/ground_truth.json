@@ -1,0 +1,37 @@
+[
+  {
+    "file": "01_complex_switch.py",
+    "smell_type": "Complex/Long Switch Statements",
+    "expected_pattern": "Strategy Pattern",
+    "line_start": 4,
+    "line_end": 23
+  },
+  {
+    "file": "02_long_parameter_list.py",
+    "smell_type": "Long Parameter List",
+    "expected_pattern": "Builder/Parameter Object",
+    "line_start": 1,
+    "line_end": 14
+  },
+  {
+    "file": "03_god_class.py",
+    "smell_type": "God Class",
+    "expected_pattern": "Facade/SRP",
+    "line_start": 1,
+    "line_end": 70
+  },
+  {
+    "file": "04_tight_coupling.py",
+    "smell_type": "Tight Coupling",
+    "expected_pattern": "Dependency Injection",
+    "line_start": 1,
+    "line_end": 22
+  },
+  {
+    "file": "05_duplicated_code.py",
+    "smell_type": "Duplicated Code",
+    "expected_pattern": "Template Method",
+    "line_start": 1,
+    "line_end": 30
+  }
+]

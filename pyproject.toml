@@ -1,15 +1,50 @@
 [project]
 name = "refactor-os"
 version = "0.1.0"
-description = ""
+description = "Sistema multi-agente determinístico para refatoração orientada por Design Patterns."
 authors = [
-    {name = "jvras",email = "jonasilv@emeal.nttdata.com"}
+    { name = "jvras", email = "jonasilv@emeal.nttdata.com" },
 ]
+readme = "Readme.md"
 requires-python = ">=3.13"
 dependencies = [
+    "agno>=2.0.0",
+    "openai>=1.40.0",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "pydantic>=2.7.0",
+    "pydantic-settings>=2.4.0",
+    "psycopg[binary]>=3.2.0",
+    "pgvector>=0.3.0",
+    "sqlalchemy>=2.0.0",
+    "radon>=6.0.1",
+    "ruff>=0.6.0",
+    "python-dotenv>=1.0.0",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "httpx>=0.27.0",
+    "mypy>=1.11.0",
+]
 
 [build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling>=1.25.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra -q"
+
+[tool.ruff]
+line-length = 110
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["E501"]

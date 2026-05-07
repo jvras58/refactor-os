@@ -18,7 +18,7 @@ def build_detector_agent() -> Agent:
         name="Detector Agent",
         id="detector-agent",
         role="Detecta bad smells e mede complexidade no código fonte.",
-        model=Groq(id=settings.llm_model_id),
+        model=Groq(api_key=settings.groq_api_key, id=settings.llm_model_id),
         db=get_db(),
         tools=[FileTools(), read_source_code_tool, ast_analyzer_tool],
         instructions=DETECTOR_INSTRUCTIONS,

@@ -18,7 +18,7 @@ def build_critic_agent() -> Agent:
         name="Critic Agent",
         id="critic-agent",
         role="Valida sintaxe e preservação da lógica do código refatorado.",
-        model=Groq(id=settings.llm_model_id),
+        model=Groq(api_key=settings.groq_api_key, id=settings.llm_model_id),
         db=get_db(),
         tools=[syntax_checker_tool, diff_generator_tool],
         instructions=CRITIC_INSTRUCTIONS,

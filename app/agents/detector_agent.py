@@ -22,6 +22,6 @@ def build_detector_agent() -> Agent:
         db=get_db(),
         tools=[FileTools(), read_source_code_tool, ast_analyzer_tool],
         instructions=DETECTOR_INSTRUCTIONS,
-        response_model=SmellDetection,
+        output_schema=SmellDetection,
         markdown=False,
     )

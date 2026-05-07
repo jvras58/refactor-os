@@ -23,6 +23,6 @@ def build_critic_agent() -> Agent:
         db=get_db(),
         tools=[syntax_checker_tool, diff_generator_tool, ShellTools()],
         instructions=CRITIC_INSTRUCTIONS,
-        response_model=ReflectionReview,
+        output_schema=ReflectionReview,
         markdown=False,
     )

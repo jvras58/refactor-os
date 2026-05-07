@@ -26,6 +26,6 @@ def build_recommender_agent() -> Agent:
             KnowledgeTools(knowledge=get_pattern_knowledge()),
         ],
         instructions=RECOMMENDER_INSTRUCTIONS,
-        response_model=RefactoringProposal,
+        output_schema=RefactoringProposal,
         markdown=False,
     )

@@ -3,21 +3,30 @@ from __future__ import annotations
 
 from agno.agent import Agent
 from agno.models.groq import Groq
+from agno.tools.knowledge import KnowledgeTools
 
 from app.core.config import get_settings
 from app.core.prompts import RECOMMENDER_INSTRUCTIONS
 from app.core.schemas import RefactoringProposal
 from app.db.session import get_db
+from app.knowledge.provider import get_pattern_knowledge
+from app.tools.pattern_registry import design_pattern_reference_tool
 
 
 def build_recommender_agent() -> Agent:
     settings = get_settings()
+    groq = Groq(api_key=settings.groq_api_key, id=settings.llm_model_id)
     return Agent(
         name="Recommender Agent",
         id="recommender-agent",
         role="Sugere o Design Pattern adequado e produz o código refatorado.",
-        model=Groq(api_key=settings.groq_api_key, id=settings.llm_model_id),
+        model=groq,
+        parser_model=groq,
         db=get_db(),
+        tools=[
+            design_pattern_reference_tool,
+            KnowledgeTools(knowledge=get_pattern_knowledge()),
+        ],
         instructions=RECOMMENDER_INSTRUCTIONS,
         output_schema=RefactoringProposal,
         markdown=False,

@@ -3,13 +3,12 @@
 Drives the explicit reflection loop (up to N iterations) outside the Team abstraction
 so the academic evaluation can measure each stage independently.
 
-Tool results (AST, pattern registry, syntax, diff) are pre-computed here and injected
-into each agent's prompt. This avoids the Groq limitation that prevents combining
-json_mode (output_schema) with tool/function calling in the same request.
+Each agent uses parser_model to separate tool calling (main model, no json_mode)
+from structured output parsing (parser_model, no tools) — resolving the Groq
+limitation that prevents combining both in a single request.
 """
 from __future__ import annotations
 
-import json
 import logging
 
 from app.agents.critic_agent import build_critic_agent
@@ -26,10 +25,6 @@ from app.core.schemas import (
     ReflectionReview,
     SmellDetection,
 )
-from app.tools.ast_tools import analyze_ast
-from app.tools.diff_tools import generate_diff
-from app.tools.pattern_registry import lookup_pattern
-from app.tools.syntax_tools import check_syntax
 
 logger = logging.getLogger(__name__)
 
@@ -50,12 +45,10 @@ class RefactorService:
         self._critic = build_critic_agent()
 
     def detect(self, source_code: str) -> SmellDetection:
-        ast_result = analyze_ast(source_code)
         prompt = (
-            "Analise o seguinte código e retorne um SmellDetection.\n\n"
-            "Resultados da análise AST (já executada):\n"
-            f"```json\n{json.dumps(ast_result, indent=2, ensure_ascii=False)}\n```\n\n"
-            f"Código-fonte:\n```python\n{source_code}\n```"
+            "Analise o seguinte código-fonte e retorne um SmellDetection.\n"
+            "Use obrigatoriamente `ast_analyzer_tool` antes de concluir.\n\n"
+            f"```python\n{source_code}\n```"
         )
         response = self._detector.run(prompt)
         content = response.content
@@ -70,7 +63,6 @@ class RefactorService:
         prior_critique: str | None = None,
     ) -> RefactoringProposal:
         expected = SMELL_TO_PATTERN.get(detection.smell_type, DesignPatternType.NONE)
-        pattern_info = lookup_pattern(expected.value)
         critique_block = (
             f"\n\nFeedback do Critic na rodada anterior (corrija obrigatoriamente):\n{prior_critique}"
             if prior_critique
@@ -81,13 +73,12 @@ class RefactorService:
             f"Pattern obrigatório: {expected.value}\n"
             f"Justificativa do Detector: {detection.reasoning}\n"
             f"Linhas afetadas: {detection.line_start}-{detection.line_end}\n\n"
-            "Estrutura canônica do pattern (já consultada no registro):\n"
-            f"```json\n{json.dumps(pattern_info, indent=2, ensure_ascii=False)}\n```\n\n"
-            "IMPORTANTE: no campo `refactored_code` use apenas aspas simples ou duplas. "
-            "NUNCA use aspas triplas (\"\"\" ou ''') — elas quebram o JSON.\n\n"
+            "Use obrigatoriamente `design_pattern_reference_tool` para consultar a estrutura "
+            "canônica do pattern antes de propor o código.\n\n"
             f"Código original:\n```python\n{source_code}\n```"
             f"{critique_block}\n\n"
-            "Retorne RefactoringProposal."
+            "Retorne RefactoringProposal. "
+            "No campo `refactored_code` use apenas aspas simples ou duplas — nunca aspas triplas."
         )
         response = self._recommender.run(prompt)
         content = response.content
@@ -100,17 +91,15 @@ class RefactorService:
         source_code: str,
         proposal: RefactoringProposal,
     ) -> ReflectionReview:
-        syntax = check_syntax(proposal.refactored_code)
-        diff = generate_diff(source_code, proposal.refactored_code)
         prompt = (
             f"Pattern aplicado: {proposal.applied_pattern.value}\n\n"
-            "Resultado de check_syntax (já executado):\n"
-            f"```json\n{json.dumps(syntax, indent=2, ensure_ascii=False)}\n```\n\n"
-            f"Diff original→refatorado (já gerado):\n```diff\n{diff}\n```\n\n"
+            "Use obrigatoriamente:\n"
+            "1. `syntax_checker_tool` no código refatorado\n"
+            "2. `diff_generator_tool` comparando original e refatorado\n\n"
             f"Código original:\n```python\n{source_code}\n```\n\n"
             f"Código refatorado:\n```python\n{proposal.refactored_code}\n```\n\n"
             "Avalie os 5 critérios das instruções e retorne ReflectionReview. "
-            "Defina `final_validated_code=null` — o código já está preservado na proposta."
+            "Defina `final_validated_code=null`."
         )
         response = self._critic.run(prompt)
         content = response.content

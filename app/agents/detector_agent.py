@@ -8,16 +8,20 @@ from app.core.config import get_settings
 from app.core.prompts import DETECTOR_INSTRUCTIONS
 from app.core.schemas import SmellDetection
 from app.db.session import get_db
+from app.tools.ast_tools import ast_analyzer_tool, read_source_code_tool
 
 
 def build_detector_agent() -> Agent:
     settings = get_settings()
+    groq = Groq(api_key=settings.groq_api_key, id=settings.llm_model_id)
     return Agent(
         name="Detector Agent",
         id="detector-agent",
         role="Detecta bad smells e mede complexidade no código fonte.",
-        model=Groq(api_key=settings.groq_api_key, id=settings.llm_model_id),
+        model=groq,
+        parser_model=groq,
         db=get_db(),
+        tools=[read_source_code_tool, ast_analyzer_tool],
         instructions=DETECTOR_INSTRUCTIONS,
         output_schema=SmellDetection,
         markdown=False,

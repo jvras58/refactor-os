@@ -3,10 +3,10 @@
 Drives the explicit reflection loop (up to N iterations) outside the Team abstraction
 so the academic evaluation can measure each stage independently.
 
-Each agent uses tools directly (no output_schema / json_mode) to avoid the Groq
-limitation that prevents combining tool/function calling with JSON mode in a single
-request. Structured output is obtained by instructing the model to reply with a
-raw JSON object and then parsing it via Pydantic in the service layer.
+Each agent runs tools on the primary model (no json_mode) and delegates structured
+output formatting to output_model — a separate Groq request with output_schema but
+no tools. This resolves the Groq limitation that prevents combining tool/function
+calling with JSON mode in a single request.
 """
 from __future__ import annotations
 
@@ -41,22 +41,25 @@ _JSON_BLOCK_RE = re.compile(r"```(?:json)?\s*([\s\S]*?)```", re.IGNORECASE)
 
 
 def _extract_json(text: str) -> dict:
-    """Extract and parse the first JSON object from a model response."""
-    if not isinstance(text, str):
-        raise ValueError(f"Esperado str, recebido {type(text)}: {text!r}")
-
-    # Try fenced code block first
+    """Fallback: extract and parse the first JSON object from a raw text response."""
     match = _JSON_BLOCK_RE.search(text)
     if match:
         return json.loads(match.group(1).strip())
-
-    # Try raw JSON object/array
     start = text.find("{")
     end = text.rfind("}")
     if start != -1 and end != -1:
         return json.loads(text[start : end + 1])
-
     raise ValueError(f"Nenhum objeto JSON encontrado na resposta:\n{text[:500]}")
+
+
+def _parse_response(content: object, model_class: type) -> object:
+    """Return typed content: use Agno's parsed object or fall back to JSON extraction."""
+    if isinstance(content, model_class):
+        return content
+    if isinstance(content, str):
+        data = _extract_json(content)
+        return model_class.model_validate(data)
+    raise ValueError(f"Tipo inesperado retornado pelo agente: {type(content)} — {content!r}")
 
 
 class RefactorService:
@@ -75,8 +78,7 @@ class RefactorService:
             f"```python\n{source_code}\n```"
         )
         response = self._detector.run(prompt)
-        data = _extract_json(response.content)
-        return SmellDetection.model_validate(data)
+        return _parse_response(response.content, SmellDetection)
 
     def propose(
         self,
@@ -99,12 +101,11 @@ class RefactorService:
             "canônica do pattern antes de propor o código.\n\n"
             f"Código original:\n```python\n{source_code}\n```"
             f"{critique_block}\n\n"
-            "Retorne o JSON de RefactoringProposal. "
+            "Retorne RefactoringProposal. "
             "No campo `refactored_code` use apenas aspas simples ou duplas — nunca aspas triplas."
         )
         response = self._recommender.run(prompt)
-        data = _extract_json(response.content)
-        return RefactoringProposal.model_validate(data)
+        return _parse_response(response.content, RefactoringProposal)
 
     def review(
         self,
@@ -118,12 +119,11 @@ class RefactorService:
             "2. `diff_generator_tool` comparando original e refatorado\n\n"
             f"Código original:\n```python\n{source_code}\n```\n\n"
             f"Código refatorado:\n```python\n{proposal.refactored_code}\n```\n\n"
-            "Avalie os 5 critérios das instruções e retorne o JSON de ReflectionReview. "
+            "Avalie os 5 critérios das instruções e retorne ReflectionReview. "
             "Defina `final_validated_code=null`."
         )
         response = self._critic.run(prompt)
-        data = _extract_json(response.content)
-        return ReflectionReview.model_validate(data)
+        return _parse_response(response.content, ReflectionReview)
 
     def run(self, request: RefactorRequest) -> RefactorResult:
         try:

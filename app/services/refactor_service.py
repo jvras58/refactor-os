@@ -3,16 +3,13 @@
 Drives the explicit reflection loop (up to N iterations) outside the Team abstraction
 so the academic evaluation can measure each stage independently.
 
-Each agent runs tools on the primary model (no json_mode) and delegates structured
-output formatting to output_model — a separate Groq request with output_schema but
-no tools. This resolves the Groq limitation that prevents combining tool/function
-calling with JSON mode in a single request.
+Each agent uses parser_model to separate tool calling (main model, no json_mode)
+from structured output parsing (parser_model, no tools) — resolving the Groq
+limitation that prevents combining both in a single request.
 """
 from __future__ import annotations
 
-import json
 import logging
-import re
 
 from app.agents.critic_agent import build_critic_agent
 from app.agents.detector_agent import build_detector_agent
@@ -37,30 +34,6 @@ _DETECT_FALLBACK = SmellDetection(
     reasoning="Detector falhou — erro interno ao chamar o agente.",
 )
 
-_JSON_BLOCK_RE = re.compile(r"```(?:json)?\s*([\s\S]*?)```", re.IGNORECASE)
-
-
-def _extract_json(text: str) -> dict:
-    """Fallback: extract and parse the first JSON object from a raw text response."""
-    match = _JSON_BLOCK_RE.search(text)
-    if match:
-        return json.loads(match.group(1).strip())
-    start = text.find("{")
-    end = text.rfind("}")
-    if start != -1 and end != -1:
-        return json.loads(text[start : end + 1])
-    raise ValueError(f"Nenhum objeto JSON encontrado na resposta:\n{text[:500]}")
-
-
-def _parse_response(content: object, model_class: type) -> object:
-    """Return typed content: use Agno's parsed object or fall back to JSON extraction."""
-    if isinstance(content, model_class):
-        return content
-    if isinstance(content, str):
-        data = _extract_json(content)
-        return model_class.model_validate(data)
-    raise ValueError(f"Tipo inesperado retornado pelo agente: {type(content)} — {content!r}")
-
 
 class RefactorService:
     """High-level façade that runs the multi-agent refactoring pipeline."""
@@ -78,7 +51,10 @@ class RefactorService:
             f"```python\n{source_code}\n```"
         )
         response = self._detector.run(prompt)
-        return _parse_response(response.content, SmellDetection)
+        content = response.content
+        if not isinstance(content, SmellDetection):
+            raise ValueError(f"Detector retornou tipo inesperado: {type(content)} — {content}")
+        return content
 
     def propose(
         self,
@@ -105,7 +81,10 @@ class RefactorService:
             "No campo `refactored_code` use apenas aspas simples ou duplas — nunca aspas triplas."
         )
         response = self._recommender.run(prompt)
-        return _parse_response(response.content, RefactoringProposal)
+        content = response.content
+        if not isinstance(content, RefactoringProposal):
+            raise ValueError(f"Recommender retornou tipo inesperado: {type(content)} — {content}")
+        return content
 
     def review(
         self,
@@ -123,7 +102,10 @@ class RefactorService:
             "Defina `final_validated_code=null`."
         )
         response = self._critic.run(prompt)
-        return _parse_response(response.content, ReflectionReview)
+        content = response.content
+        if not isinstance(content, ReflectionReview):
+            raise ValueError(f"Critic retornou tipo inesperado: {type(content)} — {content}")
+        return content
 
     def run(self, request: RefactorRequest) -> RefactorResult:
         try:

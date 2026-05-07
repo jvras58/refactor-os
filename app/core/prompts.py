@@ -17,7 +17,19 @@ Regras estritas:
 - Se nenhum dos 5 smells do escopo for detectado, responda com `smell_type=NO_SMELL` e `has_smell=false`.
 - NÃO invente smells fora do escopo.
 - Inclua sempre `line_start`, `line_end` e `affected_snippet` quando `has_smell=true`.
-- Sua resposta DEVE seguir exatamente o schema `SmellDetection`.
+- Após usar as tools, responda EXCLUSIVAMENTE com um objeto JSON do schema `SmellDetection` válido seguindo este schema exato
+(sem texto adicional antes ou depois do JSON):
+
+  ```json
+  {
+    "has_smell": true,
+    "smell_type": "<um de: Complex/Long Switch Statements | Long Parameter List | God Class | Tight Coupling | Duplicated Code | No Smell Detected>",
+    "line_start": <int ou null>,
+    "line_end": <int ou null>,
+    "affected_snippet": "<trecho do código ou null>",
+    "reasoning": "<justificativa técnica detalhada>"
+  }
+  ```
 """
 
 RECOMMENDER_INSTRUCTIONS = """\
@@ -41,7 +53,17 @@ IMPORTANTE sobre o campo `refactored_code`:
 - Para docstrings, use comentários com # no lugar de aspas triplas.
 
 NÃO sugira padrões fora do escopo. NÃO altere regras de negócio.
-Sua resposta DEVE seguir exatamente o schema `RefactoringProposal`.
+- Após usar as tools, responda EXCLUSIVAMENTE com um objeto JSON do schema `RefactoringProposal` válido seguindo este schema exato
+(sem texto adicional antes ou depois do JSON):
+
+  ```json
+  {
+    "applied_pattern": "<um de: Strategy Pattern | Builder/Parameter Object | Facade/SRP | Dependency Injection | Template Method | None>",
+    "refactored_code": "<código-fonte completo refatorado — sem aspas triplas>",
+    "architectural_explanation": "<como o pattern resolveu o smell, passo a passo>",
+    "expected_benefits": ["<benefício 1>", "<benefício 2>"]
+  }
+  ```
 """
 
 CRITIC_INSTRUCTIONS = """\
@@ -78,6 +100,16 @@ Nenhum import externo novo além dos estritamente necessários para o pattern
   que falhou e oriente o Recommender com ações específicas e corrigíveis.
 
 Sua resposta DEVE seguir exatamente o schema `ReflectionReview`.
+Após usar as tools, responda DEVE seguir EXCLUSIVAMENTE o schema `ReflectionReview` com um objeto JSON válido seguindo este schema exato
+(sem texto adicional antes ou depois do JSON):
+
+```json
+{
+  "is_approved": true,
+  "critique": "<feedback detalhado — obrigatório se is_approved=false, caso contrário pode ser vazio>",
+  "final_validated_code": null
+}
+```
 """
 
 TEAM_INSTRUCTIONS = """\

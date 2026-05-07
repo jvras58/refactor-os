@@ -23,8 +23,8 @@ class Settings(BaseSettings):
     api_host: str = Field(default="0.0.0.0")
     api_port: int = Field(default=8000)
 
-    openai_api_key: str = Field(default="")
-    llm_model_id: str = Field(default="gpt-4o")
+    groq_api_key: str = Field(default="")
+    llm_model_id: str = Field(default="llama-3.3-70b-versatile")
 
     db_url: str = Field(
         default="postgresql+psycopg://ai:ai@localhost:5532/ai",

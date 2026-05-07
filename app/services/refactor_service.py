@@ -13,13 +13,13 @@ from app.agents.detector_agent import build_detector_agent
 from app.agents.recommender_agent import build_recommender_agent
 from app.core.config import get_settings
 from app.core.schemas import (
+    SMELL_TO_PATTERN,
     BadSmellType,
     DesignPatternType,
     RefactoringProposal,
     RefactorRequest,
     RefactorResult,
     ReflectionReview,
-    SMELL_TO_PATTERN,
     SmellDetection,
 )
 

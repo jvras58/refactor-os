@@ -59,7 +59,10 @@ class RefactorService:
             f"Código-fonte:\n```python\n{source_code}\n```"
         )
         response = self._detector.run(prompt)
-        return cast(SmellDetection, response.content)
+        content = response.content
+        if not isinstance(content, SmellDetection):
+            raise ValueError(f"Detector retornou tipo inesperado: {type(content)} — {content}")
+        return content
 
     def propose(
         self,
@@ -81,12 +84,17 @@ class RefactorService:
             f"Linhas afetadas: {detection.line_start}-{detection.line_end}\n\n"
             "Estrutura canônica do pattern (já consultada no registro):\n"
             f"```json\n{json.dumps(pattern_info, indent=2, ensure_ascii=False)}\n```\n\n"
+            "IMPORTANTE: no campo `refactored_code` use apenas aspas simples ou duplas. "
+            "NUNCA use aspas triplas (\"\"\" ou ''') — elas quebram o JSON.\n\n"
             f"Código original:\n```python\n{source_code}\n```"
             f"{critique_block}\n\n"
             "Retorne RefactoringProposal."
         )
         response = self._recommender.run(prompt)
-        return cast(RefactoringProposal, response.content)
+        content = response.content
+        if not isinstance(content, RefactoringProposal):
+            raise ValueError(f"Recommender retornou tipo inesperado: {type(content)} — {content}")
+        return content
 
     def review(
         self,
@@ -102,10 +110,14 @@ class RefactorService:
             f"Diff original→refatorado (já gerado):\n```diff\n{diff}\n```\n\n"
             f"Código original:\n```python\n{source_code}\n```\n\n"
             f"Código refatorado:\n```python\n{proposal.refactored_code}\n```\n\n"
-            "Avalie os 5 critérios das instruções e retorne ReflectionReview."
+            "Avalie os 5 critérios das instruções e retorne ReflectionReview. "
+            "Defina `final_validated_code=null` — o código já está preservado na proposta."
         )
         response = self._critic.run(prompt)
-        return cast(ReflectionReview, response.content)
+        content = response.content
+        if not isinstance(content, ReflectionReview):
+            raise ValueError(f"Critic retornou tipo inesperado: {type(content)} — {content}")
+        return content
 
     def run(self, request: RefactorRequest) -> RefactorResult:
         try:

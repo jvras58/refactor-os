@@ -7,25 +7,28 @@ Guia prático para subir o `refactor-os` e exercitar a pipeline.
 - Python 3.13+
 - [`uv`](https://docs.astral.sh/uv/) para dependências
 - Docker (opcional, para Postgres+pgvector)
-- Chave da OpenAI (`OPENAI_API_KEY`)
+- Chave da Groq (`GROQ_API_KEY`) — gratuita em [console.groq.com](https://console.groq.com) → **API Keys** → *Create API Key* (formato `gsk_...`)
 
 ## 2. Setup
 
 ```bash
 git clone <repo>
 cd refactor-os
-cp .env.example .env       # preencha OPENAI_API_KEY
+cp .env.example .env       # preencha GROQ_API_KEY
 uv sync --extra dev
 ```
 
 `.env` mínimo:
 
 ```env
-OPENAI_API_KEY=sk-...
-LLM_MODEL_ID=gpt-4o
+GROQ_API_KEY=gsk_...
+LLM_MODEL_ID=llama-3.3-70b-versatile
 DB_URL=postgresql+psycopg://ai:ai@localhost:5532/ai
 MAX_REFLECTION_ITERATIONS=3
 ```
+
+> Outros modelos Llama disponíveis na Groq: `llama-3.1-8b-instant` (mais rápido / barato),
+> `meta-llama/llama-4-scout-17b-16e-instruct`. Basta trocar `LLM_MODEL_ID`.
 
 ## 3. Subir o Postgres (PgVector)
 
@@ -184,8 +187,8 @@ Os agentes em si são exercitados pelo dataset de avaliação.
 
 | Var                          | Default                                              | Descrição                         |
 |------------------------------|------------------------------------------------------|-----------------------------------|
-| `OPENAI_API_KEY`             | —                                                    | Obrigatória.                      |
-| `LLM_MODEL_ID`               | `gpt-4o`                                             | Modelo OpenAI.                    |
+| `GROQ_API_KEY`               | —                                                    | Obrigatória (gere em console.groq.com). |
+| `LLM_MODEL_ID`               | `llama-3.3-70b-versatile`                            | Modelo Llama servido pela Groq.   |
 | `DB_URL`                     | `postgresql+psycopg://ai:ai@localhost:5532/ai`       | Postgres+pgvector.                |
 | `KNOWLEDGE_TABLE`            | `design_patterns_kb`                                 | Tabela do KB.                     |
 | `MAX_REFLECTION_ITERATIONS`  | `3`                                                  | Limite do reflection loop.        |
@@ -196,7 +199,8 @@ Os agentes em si são exercitados pelo dataset de avaliação.
 
 | Sintoma                                    | Causa provável                              | Ação                                                 |
 |--------------------------------------------|---------------------------------------------|------------------------------------------------------|
-| `OPENAI_API_KEY is required`               | `.env` não preenchido.                      | Preencha `OPENAI_API_KEY`.                           |
+| `GROQ_API_KEY is required`                 | `.env` não preenchido.                      | Preencha `GROQ_API_KEY` (gere em console.groq.com).  |
+| `401 Unauthorized` da Groq                 | Chave inválida / revogada.                  | Gere uma nova em console.groq.com → API Keys.        |
 | Conexão recusada na porta 5532             | Postgres não subiu.                         | `docker compose up -d postgres`.                     |
-| `output_schema` não validado pelo modelo   | Modelo OpenAI antigo.                       | Use `gpt-4o` ou superior.                            |
+| `output_schema` não respeitado pelo modelo | Modelo Llama pequeno demais.                | Use `llama-3.3-70b-versatile` ou superior.           |
 | Reflection sempre estoura `iterations=3`   | Crítica do Critic não está sendo acionável. | Ajuste o prompt em `app/core/prompts.py`.            |

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from agno.agent import Agent
-from agno.models.openai import OpenAIChat
+from agno.models.groq import Groq
 from agno.tools.shell import ShellTools
 
 from app.core.config import get_settings
@@ -19,7 +19,7 @@ def build_critic_agent() -> Agent:
         name="Critic Agent",
         id="critic-agent",
         role="Valida sintaxe e preservação da lógica do código refatorado.",
-        model=OpenAIChat(id=settings.llm_model_id),
+        model=Groq(id=settings.llm_model_id),
         db=get_db(),
         tools=[syntax_checker_tool, diff_generator_tool, ShellTools()],
         instructions=CRITIC_INSTRUCTIONS,

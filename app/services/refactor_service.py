@@ -2,11 +2,14 @@
 
 Drives the explicit reflection loop (up to N iterations) outside the Team abstraction
 so the academic evaluation can measure each stage independently.
+
+Each agent uses parser_model to separate tool calling (main model, no json_mode)
+from structured output parsing (parser_model, no tools) — resolving the Groq
+limitation that prevents combining both in a single request.
 """
 from __future__ import annotations
 
 import logging
-from typing import cast
 
 from app.agents.critic_agent import build_critic_agent
 from app.agents.detector_agent import build_detector_agent
@@ -43,11 +46,15 @@ class RefactorService:
 
     def detect(self, source_code: str) -> SmellDetection:
         prompt = (
-            "Analise o seguinte código e retorne um SmellDetection.\n"
-            "```python\n" + source_code + "\n```"
+            "Analise o seguinte código-fonte e retorne um SmellDetection.\n"
+            "Use obrigatoriamente `ast_analyzer_tool` antes de concluir.\n\n"
+            f"```python\n{source_code}\n```"
         )
         response = self._detector.run(prompt)
-        return cast(SmellDetection, response.content)
+        content = response.content
+        if not isinstance(content, SmellDetection):
+            raise ValueError(f"Detector retornou tipo inesperado: {type(content)} — {content}")
+        return content
 
     def propose(
         self,
@@ -57,7 +64,7 @@ class RefactorService:
     ) -> RefactoringProposal:
         expected = SMELL_TO_PATTERN.get(detection.smell_type, DesignPatternType.NONE)
         critique_block = (
-            f"\n\nFeedback do Critic na rodada anterior (corrija):\n{prior_critique}"
+            f"\n\nFeedback do Critic na rodada anterior (corrija obrigatoriamente):\n{prior_critique}"
             if prior_critique
             else ""
         )
@@ -66,12 +73,18 @@ class RefactorService:
             f"Pattern obrigatório: {expected.value}\n"
             f"Justificativa do Detector: {detection.reasoning}\n"
             f"Linhas afetadas: {detection.line_start}-{detection.line_end}\n\n"
+            "Use obrigatoriamente `design_pattern_reference_tool` para consultar a estrutura "
+            "canônica do pattern antes de propor o código.\n\n"
             f"Código original:\n```python\n{source_code}\n```"
             f"{critique_block}\n\n"
-            "Retorne RefactoringProposal."
+            "Retorne RefactoringProposal. "
+            "No campo `refactored_code` use apenas aspas simples ou duplas — nunca aspas triplas."
         )
         response = self._recommender.run(prompt)
-        return cast(RefactoringProposal, response.content)
+        content = response.content
+        if not isinstance(content, RefactoringProposal):
+            raise ValueError(f"Recommender retornou tipo inesperado: {type(content)} — {content}")
+        return content
 
     def review(
         self,
@@ -80,12 +93,19 @@ class RefactorService:
     ) -> ReflectionReview:
         prompt = (
             f"Pattern aplicado: {proposal.applied_pattern.value}\n\n"
+            "Use obrigatoriamente:\n"
+            "1. `syntax_checker_tool` no código refatorado\n"
+            "2. `diff_generator_tool` comparando original e refatorado\n\n"
             f"Código original:\n```python\n{source_code}\n```\n\n"
             f"Código refatorado:\n```python\n{proposal.refactored_code}\n```\n\n"
-            "Valide sintaxe, preservação de lógica e correção do pattern. Retorne ReflectionReview."
+            "Avalie os 5 critérios das instruções e retorne ReflectionReview. "
+            "Defina `final_validated_code=null`."
         )
         response = self._critic.run(prompt)
-        return cast(ReflectionReview, response.content)
+        content = response.content
+        if not isinstance(content, ReflectionReview):
+            raise ValueError(f"Critic retornou tipo inesperado: {type(content)} — {content}")
+        return content
 
     def run(self, request: RefactorRequest) -> RefactorResult:
         try:

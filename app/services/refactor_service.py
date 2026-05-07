@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import cast
 
 from app.agents.critic_agent import build_critic_agent
 from app.agents.detector_agent import build_detector_agent

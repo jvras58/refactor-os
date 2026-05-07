@@ -8,11 +8,9 @@ from __future__ import annotations
 import logging
 from typing import cast
 
-from app.agents import (
-    build_critic_agent,
-    build_detector_agent,
-    build_recommender_agent,
-)
+from app.agents.critic_agent import build_critic_agent
+from app.agents.detector_agent import build_detector_agent
+from app.agents.recommender_agent import build_recommender_agent
 from app.core.config import get_settings
 from app.core.schemas import (
     BadSmellType,

@@ -38,6 +38,16 @@ docker compose up -d postgres
 
 Sobe `agnohq/pgvector:16` na porta `5532`. Healthcheck embutido.
 
+> **Embeddings 100% locais:** o projeto usa `FastEmbedEmbedder` (`BAAI/bge-small-en-v1.5`,
+> 384 dimensões) — sem API key, sem provider pago. O modelo (~30MB ONNX) é baixado uma única
+> vez na primeira chamada a `/knowledge/sync` e cacheado em `~/.cache/fastembed/`.
+>
+> Se você migrou de uma instalação antiga que indexou com embeddings de 1536 dimensões
+> (default OpenAI), dropar a tabela do KB antes de re-indexar:
+> ```bash
+> docker compose exec postgres psql -U ai -d ai -c "DROP TABLE IF EXISTS ai.design_patterns_kb;"
+> ```
+
 ## 4. Rodar a aplicação
 
 ### Desenvolvimento (reload automático)

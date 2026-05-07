@@ -43,11 +43,6 @@ Sobe `agnohq/pgvector:16` na porta `5532`. Healthcheck embutido.
 > **Embeddings via HuggingFace Inference API (gratuita):** o projeto usa
 > `HuggingfaceCustomEmbedder` com `BAAI/bge-small-en-v1.5` (384 dims) — sem custo, sem
 > compilação Rust. Requer apenas `HUGGINGFACE_API_KEY` (token Read gratuito do HF).
->
-> Se você migrou de uma instalação que indexou com embeddings de 1536 dimensões (default
-> OpenAI), dropar a tabela do KB antes de re-indexar:
-> ```bash
-> docker compose exec postgres psql -U ai -d ai -c "DROP TABLE IF EXISTS ai.design_patterns_kb;"
 > ```
 
 ## 4. Rodar a aplicação

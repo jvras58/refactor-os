@@ -5,7 +5,6 @@ from typing import Any
 
 from agno.tools import tool
 
-
 DESIGN_PATTERNS: dict[str, dict[str, Any]] = {
     "Strategy Pattern": {
         "intent": "Encapsular famílias de algoritmos intercambiáveis em classes polimórficas.",

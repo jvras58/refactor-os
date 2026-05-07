@@ -48,22 +48,22 @@ tests/                             # unit tests determinísticos das tools
 
 ## Setup
 
-Os agentes usam **Groq + Llama 3.3 70B** como provider de LLM. Você precisa de uma
-chave de API gratuita do Groq:
+Os agentes usam **Mistral** como provider de LLM. Você precisa de uma
+chave de API gratuita do Mistral:
 
-1. Crie uma conta em [console.groq.com](https://console.groq.com).
-2. Em **API Keys** gere uma nova chave (formato `gsk_...`).
-3. Cole no `.env` como `GROQ_API_KEY=gsk_...`.
+1. Crie uma conta em [console.mistral.ai](https://console.mistral.ai).
+2. Em **API Keys** gere uma nova chave (formato `oj2Z...`).
+3. Cole no `.env` como `MISTRAL_API_KEY=oj2Z...`.
 
 ```bash
 cp .env.example .env
-# preencha GROQ_API_KEY=gsk_...
+# preencha MISTRAL_API_KEY=oj2Z...
 
 # instalar deps
 uv sync --extra dev
 ```
 
-Para trocar o modelo Llama (ex.: `llama-3.1-8b-instant`, `meta-llama/llama-4-scout-17b-16e-instruct`),
+Para trocar o modelo Mistral (ex.: `mistral-medium-latest`, `mistral-large-latest`),
 ajuste `LLM_MODEL_ID` no `.env`.
 
 ## Executar

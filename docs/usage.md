@@ -7,7 +7,7 @@ Guia prático para subir o `refactor-os` e exercitar a pipeline.
 - Python 3.13+
 - [`uv`](https://docs.astral.sh/uv/) para dependências
 - Docker (opcional, para Postgres+pgvector)
-- Chave da Groq (`MISTRAL_API_KEY`) — gratuita em [Mistral](https://admin.mistral.ai/organization/api-keys) → **API Keys** → *Create API Key* (formato `oj2Z...`)
+- Chave da Groq (`MISTRAL_API_KEY`) — gratuita em [console.mistral.ai](https://console.mistral.ai) → **API Keys** → *Create API Key* (formato `oj2Z...`)
 - Token do HuggingFace (`HUGGINGFACE_API_KEY`) — gratuito em [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens) → *New token* → tipo **Read** (formato `hf_...`). Usado para embeddings via Inference API, sem custo.
 
 ## 2. Setup
@@ -192,7 +192,7 @@ Os agentes em si são exercitados pelo dataset de avaliação.
 
 | Var                          | Default                                              | Descrição                         |
 |------------------------------|------------------------------------------------------|-----------------------------------|
-| `MISTRAL_API_KEY`            | —                                                    | Obrigatória (gere em https://admin.mistral.ai/organization/api-keys). |
+| `MISTRAL_API_KEY`            | —                                                    | Obrigatória (gere em https://console.mistral.ai). |
 | `LLM_MODEL_ID`               | `mistral-medium-latest`                              | Modelo Mistral servido pela Mistral.   |
 | `DB_URL`                     | `postgresql+psycopg://ai:ai@localhost:5532/ai`       | Postgres+pgvector.                |
 | `KNOWLEDGE_TABLE`            | `design_patterns_kb`                                 | Tabela do KB.                     |
@@ -205,6 +205,6 @@ Os agentes em si são exercitados pelo dataset de avaliação.
 | Sintoma                                    | Causa provável                              | Ação                                                 |
 |--------------------------------------------|---------------------------------------------|------------------------------------------------------|
 | `MISTRAL_API_KEY is required`                 | `.env` não preenchido.                      | Preencha `MISTRAL_API_KEY` (gere em console.groq.com).  |
-| `401 Unauthorized` da Mistral                 | Chave inválida / revogada.                  | Gere uma nova em https://admin.mistral.ai/organization/api-keys → API Keys.        |
+| `401 Unauthorized` da Mistral                 | Chave inválida / revogada.                  | Gere uma nova em https://console.mistral.ai → API Keys.        |
 | Conexão recusada na porta 5532             | Postgres não subiu.                         | `docker compose up -d postgres`.                     |     |
 | Reflection sempre estoura `iterations=3`   | Crítica do Critic não está sendo acionável. | Ajuste o prompt em `app/core/prompts.py`.            |

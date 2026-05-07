@@ -17,7 +17,7 @@ def build_critic_agent() -> Agent:
     settings = get_settings()
     return Agent(
         name="Critic Agent",
-        agent_id="critic-agent",
+        id="critic-agent",
         role="Valida sintaxe e preservação da lógica do código refatorado.",
         model=OpenAIChat(id=settings.llm_model_id),
         db=get_db(),

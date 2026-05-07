@@ -16,7 +16,7 @@ def build_detector_agent() -> Agent:
     settings = get_settings()
     return Agent(
         name="Detector Agent",
-        agent_id="detector-agent",
+        id="detector-agent",
         role="Detecta bad smells e mede complexidade no código fonte.",
         model=OpenAIChat(id=settings.llm_model_id),
         db=get_db(),

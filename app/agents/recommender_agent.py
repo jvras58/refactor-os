@@ -17,7 +17,7 @@ def build_recommender_agent() -> Agent:
     settings = get_settings()
     return Agent(
         name="Recommender Agent",
-        agent_id="recommender-agent",
+        id="recommender-agent",
         role="Sugere o Design Pattern adequado e produz o código refatorado.",
         model=OpenAIChat(id=settings.llm_model_id),
         db=get_db(),

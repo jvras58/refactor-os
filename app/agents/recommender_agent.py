@@ -16,7 +16,7 @@ def build_recommender_agent() -> Agent:
         name="Recommender Agent",
         id="recommender-agent",
         role="Sugere o Design Pattern adequado e produz o código refatorado.",
-        model=Groq(id=settings.llm_model_id),
+        model=Groq(api_key=settings.groq_api_key, id=settings.llm_model_id),
         db=get_db(),
         instructions=RECOMMENDER_INSTRUCTIONS,
         output_schema=RefactoringProposal,

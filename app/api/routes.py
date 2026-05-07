@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -36,7 +37,7 @@ def health() -> dict[str, str]:
 @router.post("/detect", response_model=SmellDetection)
 def detect(
     request: RefactorRequest,
-    service: RefactorService = Depends(_refactor_service),
+    service: Annotated[RefactorService, Depends(_refactor_service)],
 ) -> SmellDetection:
     return service.detect(request.source_code)
 
@@ -44,14 +45,14 @@ def detect(
 @router.post("/refactor", response_model=RefactorResult)
 def refactor(
     request: RefactorRequest,
-    service: RefactorService = Depends(_refactor_service),
+    service: Annotated[RefactorService, Depends(_refactor_service)],
 ) -> RefactorResult:
     return service.run(request)
 
 
 @router.post("/evaluate", response_model=EvaluationMetrics)
 def evaluate(
-    service: EvaluationService = Depends(_evaluation_service),
+    service: Annotated[EvaluationService, Depends(_evaluation_service)],
 ) -> EvaluationMetrics:
     try:
         return service.evaluate()

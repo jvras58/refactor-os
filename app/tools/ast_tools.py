@@ -7,7 +7,6 @@ from typing import Any
 
 from agno.tools import tool
 
-
 GOD_CLASS_MEMBER_THRESHOLD = 20
 LONG_PARAMETER_THRESHOLD = 5
 HIGH_COMPLEXITY_THRESHOLD = 10

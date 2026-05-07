@@ -55,7 +55,11 @@ class ReflectionReview(BaseModel):
 
 
 class RefactorRequest(BaseModel):
-    source_code: str = Field(description="Código-fonte original a ser analisado.")
+    source_code: str = Field(
+        description="Código-fonte original a ser analisado.",
+        min_length=1,
+        max_length=50_000,
+    )
     file_name: str | None = Field(default=None, description="Nome opcional do arquivo de origem.")
 
 
@@ -65,6 +69,7 @@ class RefactorResult(BaseModel):
     review: ReflectionReview | None = None
     iterations: int = Field(default=0, description="Iterações de reflection executadas.")
     approved: bool = False
+    error: str | None = Field(default=None, description="Mensagem de erro se o pipeline falhou.")
 
 
 class GroundTruthEntry(BaseModel):

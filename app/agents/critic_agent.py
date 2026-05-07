@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from agno.agent import Agent
 from agno.models.groq import Groq
-from agno.tools.shell import ShellTools
 
 from app.core.config import get_settings
 from app.core.prompts import CRITIC_INSTRUCTIONS
@@ -21,7 +20,7 @@ def build_critic_agent() -> Agent:
         role="Valida sintaxe e preservação da lógica do código refatorado.",
         model=Groq(id=settings.llm_model_id),
         db=get_db(),
-        tools=[syntax_checker_tool, diff_generator_tool, ShellTools()],
+        tools=[syntax_checker_tool, diff_generator_tool],
         instructions=CRITIC_INSTRUCTIONS,
         output_schema=ReflectionReview,
         markdown=False,

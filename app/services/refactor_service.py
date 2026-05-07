@@ -25,6 +25,12 @@ from app.core.schemas import (
 
 logger = logging.getLogger(__name__)
 
+_DETECT_FALLBACK = SmellDetection(
+    has_smell=False,
+    smell_type=BadSmellType.NO_SMELL,
+    reasoning="Detector falhou — erro interno ao chamar o agente.",
+)
+
 
 class RefactorService:
     """High-level façade that runs the multi-agent refactoring pipeline."""
@@ -82,7 +88,16 @@ class RefactorService:
         return cast(ReflectionReview, response.content)
 
     def run(self, request: RefactorRequest) -> RefactorResult:
-        detection = self.detect(request.source_code)
+        try:
+            detection = self.detect(request.source_code)
+        except Exception:
+            logger.exception("Detector stage failed")
+            return RefactorResult(
+                detection=_DETECT_FALLBACK,
+                approved=False,
+                iterations=0,
+                error="Detector falhou — verifique logs para detalhes.",
+            )
 
         if not detection.has_smell or detection.smell_type == BadSmellType.NO_SMELL:
             return RefactorResult(detection=detection, approved=False, iterations=0)
@@ -93,8 +108,32 @@ class RefactorService:
 
         for iteration in range(1, self._settings.max_reflection_iterations + 1):
             logger.info("Reflection iteration %s", iteration)
-            proposal = self.propose(request.source_code, detection, prior_critique=critique)
-            review = self.review(request.source_code, proposal)
+            try:
+                proposal = self.propose(request.source_code, detection, prior_critique=critique)
+            except Exception:
+                logger.exception("Recommender stage failed at iteration %s", iteration)
+                return RefactorResult(
+                    detection=detection,
+                    proposal=proposal,
+                    review=review,
+                    iterations=iteration,
+                    approved=False,
+                    error=f"Recommender falhou na iteração {iteration} — verifique logs.",
+                )
+
+            try:
+                review = self.review(request.source_code, proposal)
+            except Exception:
+                logger.exception("Critic stage failed at iteration %s", iteration)
+                return RefactorResult(
+                    detection=detection,
+                    proposal=proposal,
+                    review=review,
+                    iterations=iteration,
+                    approved=False,
+                    error=f"Critic falhou na iteração {iteration} — verifique logs.",
+                )
+
             if review.is_approved:
                 return RefactorResult(
                     detection=detection,

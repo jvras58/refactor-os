@@ -39,7 +39,7 @@ app/
 ├── knowledge/                     # PgVector + 5 .md (1 por pattern)
 ├── services/                      # refactor / evaluation / knowledge loader
 ├── tools/                         # ast, pattern_registry, diff, syntax
-└── main.py                        # AgentOS + FastAPI ASGI
+└── main.py                        # FastAPI ASGI entry point
 dataset/
 ├── examples/                      # 5 scripts seed (1 por smell)
 └── ground_truth.json              # gabarito p/ Precision/Recall/Accuracy

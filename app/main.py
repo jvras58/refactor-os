@@ -1,14 +1,10 @@
-"""ASGI entry point — wires AgentOS, FastAPI routes and the multi-agent pipeline."""
+"""ASGI entry point — FastAPI app exposing the multi-agent refactoring pipeline."""
 from __future__ import annotations
 
 import logging
 
-from agno.os import AgentOS
+from fastapi import FastAPI
 
-from app.agents.critic_agent import build_critic_agent
-from app.agents.detector_agent import build_detector_agent
-from app.agents.recommender_agent import build_recommender_agent
-from app.agents.refactor_team import build_refactor_team
 from app.api.routes import router
 from app.core.config import get_settings
 
@@ -20,28 +16,24 @@ def _configure_logging(level: str) -> None:
     )
 
 
-def create_app():
+def create_app() -> FastAPI:
     settings = get_settings()
     _configure_logging(settings.log_level)
 
-    detector = build_detector_agent()
-    recommender = build_recommender_agent()
-    critic = build_critic_agent()
-    team = build_refactor_team()
-
-    agent_os = AgentOS(
+    fastapi_app = FastAPI(
+        title="refactor-os",
         description="Sistema multi-agente determinístico de refatoração orientada por Design Patterns.",
-        agents=[detector, recommender, critic],
-        teams=[team],
+        version="0.1.0",
     )
-    fastapi_app = agent_os.get_app()
     fastapi_app.include_router(router)
-    return agent_os, fastapi_app
+    return fastapi_app
 
 
-agent_os, app = create_app()
+app = create_app()
 
 
 if __name__ == "__main__":
+    import uvicorn
+
     settings = get_settings()
-    agent_os.serve(app="app.main:app", host=settings.api_host, port=settings.api_port, reload=True)
+    uvicorn.run("app.main:app", host=settings.api_host, port=settings.api_port, reload=True)

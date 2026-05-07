@@ -23,8 +23,8 @@ class Settings(BaseSettings):
     api_host: str = Field(default="0.0.0.0")
     api_port: int = Field(default=8000)
 
-    groq_api_key: str = Field(default="")
-    llm_model_id: str = Field(default="llama-3.3-70b-versatile")
+    mistral_api_key: str = Field(default="")
+    llm_model_id: str = Field(default="mistral-medium-latest")
 
     huggingface_api_key: str = Field(default="", description="Token HF para embeddings via Inference API (gratuito).")
     embedding_model_id: str = Field(default="BAAI/bge-small-en-v1.5")

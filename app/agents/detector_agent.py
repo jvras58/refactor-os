@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from agno.agent import Agent
-from agno.models.groq import Groq
+from agno.models.mistral import MistralChat
 
 from app.core.config import get_settings
 from app.core.prompts import DETECTOR_INSTRUCTIONS
@@ -13,13 +13,16 @@ from app.tools.ast_tools import ast_analyzer_tool, read_source_code_tool
 
 def build_detector_agent() -> Agent:
     settings = get_settings()
-    groq = Groq(api_key=settings.groq_api_key, id=settings.llm_model_id)
+    model = MistralChat(
+        id=settings.llm_model_id,
+        api_key=settings.mistral_api_key,
+        temperature=0.0,
+    )
     return Agent(
         name="Detector Agent",
         id="detector-agent",
         role="Detecta bad smells e mede complexidade no código fonte.",
-        model=groq,
-        output_model=groq,
+        model=model,
         db=get_db(),
         tools=[read_source_code_tool, ast_analyzer_tool],
         instructions=DETECTOR_INSTRUCTIONS,

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from agno.agent import Agent
-from agno.models.groq import Groq
+from agno.models.mistral import MistralChat
 from agno.tools.knowledge import KnowledgeTools
 
 from app.core.config import get_settings
@@ -15,13 +15,16 @@ from app.tools.pattern_registry import design_pattern_reference_tool
 
 def build_recommender_agent() -> Agent:
     settings = get_settings()
-    groq = Groq(api_key=settings.groq_api_key, id=settings.llm_model_id)
+    model = MistralChat(
+        id=settings.llm_model_id,
+        api_key=settings.mistral_api_key,
+        temperature=0.0,
+    )
     return Agent(
         name="Recommender Agent",
         id="recommender-agent",
         role="Sugere o Design Pattern adequado e produz o código refatorado.",
-        model=groq,
-        output_model=groq,
+        model=model,
         db=get_db(),
         tools=[
             design_pattern_reference_tool,

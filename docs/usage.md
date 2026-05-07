@@ -8,6 +8,7 @@ Guia prático para subir o `refactor-os` e exercitar a pipeline.
 - [`uv`](https://docs.astral.sh/uv/) para dependências
 - Docker (opcional, para Postgres+pgvector)
 - Chave da Groq (`GROQ_API_KEY`) — gratuita em [console.groq.com](https://console.groq.com) → **API Keys** → *Create API Key* (formato `gsk_...`)
+- Token do HuggingFace (`HUGGINGFACE_API_KEY`) — gratuito em [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens) → *New token* → tipo **Read** (formato `hf_...`). Usado para embeddings via Inference API, sem custo.
 
 ## 2. Setup
 
@@ -23,6 +24,7 @@ uv sync --extra dev
 ```env
 GROQ_API_KEY=gsk_...
 LLM_MODEL_ID=llama-3.3-70b-versatile
+HUGGINGFACE_API_KEY=hf_...
 DB_URL=postgresql+psycopg://ai:ai@localhost:5532/ai
 MAX_REFLECTION_ITERATIONS=3
 ```
@@ -38,12 +40,12 @@ docker compose up -d postgres
 
 Sobe `agnohq/pgvector:16` na porta `5532`. Healthcheck embutido.
 
-> **Embeddings 100% locais:** o projeto usa `FastEmbedEmbedder` (`BAAI/bge-small-en-v1.5`,
-> 384 dimensões) — sem API key, sem provider pago. O modelo (~30MB ONNX) é baixado uma única
-> vez na primeira chamada a `/knowledge/sync` e cacheado em `~/.cache/fastembed/`.
+> **Embeddings via HuggingFace Inference API (gratuita):** o projeto usa
+> `HuggingfaceCustomEmbedder` com `BAAI/bge-small-en-v1.5` (384 dims) — sem custo, sem
+> compilação Rust. Requer apenas `HUGGINGFACE_API_KEY` (token Read gratuito do HF).
 >
-> Se você migrou de uma instalação antiga que indexou com embeddings de 1536 dimensões
-> (default OpenAI), dropar a tabela do KB antes de re-indexar:
+> Se você migrou de uma instalação que indexou com embeddings de 1536 dimensões (default
+> OpenAI), dropar a tabela do KB antes de re-indexar:
 > ```bash
 > docker compose exec postgres psql -U ai -d ai -c "DROP TABLE IF EXISTS ai.design_patterns_kb;"
 > ```

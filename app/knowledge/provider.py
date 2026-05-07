@@ -1,13 +1,14 @@
 """PgVector-backed knowledge base for the design pattern reference corpus.
 
-Uses FastEmbed (BAAI/bge-small-en-v1.5, 384 dims) — runs locally, no API key,
-so the project stays free of paid embedding providers.
+Uses HuggingfaceCustomEmbedder (BAAI/bge-small-en-v1.5, 384 dims) via the HF
+Inference API gratuita — sem compilação Rust, sem provedor pago.
+Requer HUGGINGFACE_API_KEY no .env (token gratuito em huggingface.co/settings/tokens).
 """
 from __future__ import annotations
 
 from functools import lru_cache
 
-from agno.knowledge.embedder.fastembed import FastEmbedEmbedder
+from agno.knowledge.embedder.huggingface import HuggingfaceCustomEmbedder
 from agno.knowledge.knowledge import Knowledge
 from agno.vectordb.pgvector import PgVector
 
@@ -19,7 +20,11 @@ from app.db.session import get_db
 def get_pattern_knowledge() -> Knowledge:
     """Return a Knowledge instance backed by PgVector for the 5 design patterns."""
     settings = get_settings()
-    embedder = FastEmbedEmbedder(id="BAAI/bge-small-en-v1.5", dimensions=384)
+    embedder = HuggingfaceCustomEmbedder(
+        id=settings.embedding_model_id,
+        dimensions=384,
+        api_key=settings.huggingface_api_key or None,
+    )
     vector_db = PgVector(
         table_name=settings.knowledge_table,
         db_url=settings.db_url,

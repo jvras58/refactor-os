@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     groq_api_key: str = Field(default="")
     llm_model_id: str = Field(default="llama-3.3-70b-versatile")
 
+    huggingface_api_key: str = Field(default="", description="Token HF para embeddings via Inference API (gratuito).")
+    embedding_model_id: str = Field(default="BAAI/bge-small-en-v1.5")
+
     db_url: str = Field(
         default="postgresql+psycopg://ai:ai@localhost:5532/ai",
         description="PostgreSQL + pgvector connection string used by Agno.",

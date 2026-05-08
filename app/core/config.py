@@ -25,6 +25,7 @@ class Settings(BaseSettings):
 
     mistral_api_key: str = Field(default="")
     llm_model_id: str = Field(default="mistral-medium-latest")
+    llm_temperature: float = Field(default=0.2, ge=0.0, le=1.0)
 
     huggingface_api_key: str = Field(default="", description="Token HF para embeddings via Inference API (gratuito).")
     embedding_model_id: str = Field(default="BAAI/bge-small-en-v1.5")

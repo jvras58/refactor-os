@@ -17,7 +17,7 @@ def build_critic_agent() -> Agent:
     model = MistralChat(
         id=settings.llm_model_id,
         api_key=settings.mistral_api_key,
-        temperature=0.0,
+        temperature=settings.llm_temperature,
     )
     return Agent(
         name="Critic Agent",

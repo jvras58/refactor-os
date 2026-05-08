@@ -29,11 +29,6 @@ def _evaluation_service() -> EvaluationService:
     return EvaluationService(_refactor_service())
 
 
-@router.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok"}
-
-
 @router.post("/detect", response_model=SmellDetection)
 def detect(
     request: RefactorRequest,

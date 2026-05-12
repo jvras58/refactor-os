@@ -32,7 +32,7 @@ Comunicação **Spec-Driven** via Pydantic em `app/core/schemas.py`.
 
 ```
 app/
-├── api/routes.py                 # FastAPI: /detect /refactor /evaluate /knowledge/sync
+├── api/                           # FastAPI: routes: /detect /refactor /evaluate /knowledge/sync
 ├── agents/                        # Detector, Recommender, Critic, Team
 ├── core/                          # config, prompts, schemas (Pydantic)
 ├── db/session.py                  # PostgresDb compartilhado (Agno)

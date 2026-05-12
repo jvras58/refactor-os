@@ -1,7 +1,7 @@
 # refactor-os
 
 Sistema multi-agente **determinístico** para revisão e refatoração de código orientada por
-Design Patterns. Diferente de assistentes de chat genéricos, este projeto atua como um
+Design Patterns. Este projeto atua como um
 **pipeline cirúrgico** restrito a 5 pares Smell↔Pattern, com etapa explícita de Reflection.
 
 ## Escopo (5 Smells × 5 Patterns)

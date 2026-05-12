@@ -111,12 +111,3 @@ Após usar as tools, responda DEVE seguir EXCLUSIVAMENTE o schema `ReflectionRev
 }
 ```
 """
-
-TEAM_INSTRUCTIONS = """\
-Pipeline determinístico de refatoração:
-1. Detector → identifica bad smell.
-2. Recommender → aplica design pattern e propõe refatoração.
-3. Critic → valida sintaxe + preservação de lógica.
-4. Em caso de reprovação, devolva ao Recommender com a crítica (até 3 iterações).
-5. Retorne resultado consolidado em JSON.
-"""

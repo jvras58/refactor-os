@@ -1,6 +1,7 @@
 """Batch loader for the design pattern knowledge base."""
 from __future__ import annotations
 
+import asyncio
 import logging
 from pathlib import Path
 
@@ -10,8 +11,8 @@ from app.knowledge.provider import get_pattern_knowledge
 logger = logging.getLogger(__name__)
 
 
-def load_patterns_into_kb() -> int:
-    """Index every markdown file under `patterns_dir` into PgVector.
+async def load_patterns_into_kb() -> int:
+    """Index every markdown file under `patterns_dir` into PgVector asynchronously.
 
     Returns the number of files successfully loaded.
     """
@@ -22,7 +23,10 @@ def load_patterns_into_kb() -> int:
         raise FileNotFoundError(f"patterns dir not found: {patterns_dir}")
 
     files = sorted(patterns_dir.glob("*.md"))
+    tasks = []
     for path in files:
         logger.info("Indexing pattern doc: %s", path.name)
-        knowledge.add_content(path=str(path))
+        tasks.append(knowledge.ainsert(name=path.stem, path=str(path)))
+
+    await asyncio.gather(*tasks)
     return len(files)

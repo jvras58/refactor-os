@@ -10,10 +10,10 @@ from app.core.schemas import EvaluationMetrics
 from app.services.evaluation_service import EvaluationService
 
 
-def evaluate(
+async def evaluate(
     service: Annotated[EvaluationService, Depends(get_evaluation_service)],
 ) -> EvaluationMetrics:
     try:
-        return service.evaluate()
+        return await service.evaluate()
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc

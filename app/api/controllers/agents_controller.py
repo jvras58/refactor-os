@@ -10,15 +10,15 @@ from app.core.schemas import RefactorRequest, RefactorResult, SmellDetection
 from app.services.refactor_service import RefactorService
 
 
-def detect(
+async def detect(
     request: RefactorRequest,
     service: Annotated[RefactorService, Depends(get_refactor_service)],
 ) -> SmellDetection:
-    return service.detect(request.source_code)
+    return await service.detect(request.source_code)
 
 
-def refactor(
+async def refactor(
     request: RefactorRequest,
     service: Annotated[RefactorService, Depends(get_refactor_service)],
 ) -> RefactorResult:
-    return service.run(request)
+    return await service.run(request)

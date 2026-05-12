@@ -44,19 +44,19 @@ class RefactorService:
         self._recommender = build_recommender_agent()
         self._critic = build_critic_agent()
 
-    def detect(self, source_code: str) -> SmellDetection:
+    async def detect(self, source_code: str) -> SmellDetection:
         prompt = (
             "Analise o seguinte código-fonte e retorne um SmellDetection.\n"
             "Use obrigatoriamente `ast_analyzer_tool` antes de concluir.\n\n"
             f"```python\n{source_code}\n```"
         )
-        response = self._detector.run(prompt)
+        response = await self._detector.arun(prompt)
         content = response.content
         if not isinstance(content, SmellDetection):
             raise ValueError(f"Detector retornou tipo inesperado: {type(content)} — {content}")
         return content
 
-    def propose(
+    async def propose(
         self,
         source_code: str,
         detection: SmellDetection,
@@ -80,13 +80,13 @@ class RefactorService:
             "Retorne RefactoringProposal. "
             "No campo `refactored_code` use apenas aspas simples ou duplas — nunca aspas triplas."
         )
-        response = self._recommender.run(prompt)
+        response = await self._recommender.arun(prompt)
         content = response.content
         if not isinstance(content, RefactoringProposal):
             raise ValueError(f"Recommender retornou tipo inesperado: {type(content)} — {content}")
         return content
 
-    def review(
+    async def review(
         self,
         source_code: str,
         proposal: RefactoringProposal,
@@ -101,15 +101,15 @@ class RefactorService:
             "Avalie os 5 critérios das instruções e retorne ReflectionReview. "
             "Defina `final_validated_code=null`."
         )
-        response = self._critic.run(prompt)
+        response = await self._critic.arun(prompt)
         content = response.content
         if not isinstance(content, ReflectionReview):
             raise ValueError(f"Critic retornou tipo inesperado: {type(content)} — {content}")
         return content
 
-    def run(self, request: RefactorRequest) -> RefactorResult:
+    async def run(self, request: RefactorRequest) -> RefactorResult:
         try:
-            detection = self.detect(request.source_code)
+            detection = await self.detect(request.source_code)
         except Exception:
             logger.exception("Detector stage failed")
             return RefactorResult(
@@ -129,7 +129,7 @@ class RefactorService:
         for iteration in range(1, self._settings.max_reflection_iterations + 1):
             logger.info("Reflection iteration %s", iteration)
             try:
-                proposal = self.propose(request.source_code, detection, prior_critique=critique)
+                proposal = await self.propose(request.source_code, detection, prior_critique=critique)
             except Exception:
                 logger.exception("Recommender stage failed at iteration %s", iteration)
                 return RefactorResult(
@@ -142,7 +142,7 @@ class RefactorService:
                 )
 
             try:
-                review = self.review(request.source_code, proposal)
+                review = await self.review(request.source_code, proposal)
             except Exception:
                 logger.exception("Critic stage failed at iteration %s", iteration)
                 return RefactorResult(

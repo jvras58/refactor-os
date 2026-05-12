@@ -34,7 +34,7 @@ class EvaluationService:
         self._settings = get_settings()
         self._service = refactor_service or RefactorService()
 
-    def evaluate(self) -> EvaluationMetrics:
+    async def evaluate(self) -> EvaluationMetrics:
         dataset_dir = self._settings.dataset_dir
         ground_truth_path = dataset_dir / "ground_truth.json"
         examples_dir = dataset_dir / "examples"
@@ -50,7 +50,7 @@ class EvaluationService:
                 logger.warning("dataset file missing: %s", source_path)
                 continue
             source_code = source_path.read_text(encoding="utf-8")
-            result = self._service.run(RefactorRequest(source_code=source_code, file_name=entry.file))
+            result = await self._service.run(RefactorRequest(source_code=source_code, file_name=entry.file))
 
             expected_has_smell = entry.smell_type != BadSmellType.NO_SMELL
             detected = result.detection.has_smell and result.detection.smell_type == entry.smell_type

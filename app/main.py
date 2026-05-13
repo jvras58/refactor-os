@@ -5,7 +5,7 @@ import logging
 
 from fastapi import FastAPI
 
-from app.api.routes import router
+from app.api.routes import routerAPI, routerDash
 from app.core.config import get_settings
 
 
@@ -25,7 +25,8 @@ def create_app() -> FastAPI:
         description="Sistema multi-agente determinístico de refatoração orientada por Design Patterns.",
         version="0.1.0",
     )
-    fastapi_app.include_router(router)
+    fastapi_app.include_router(routerAPI)
+    fastapi_app.include_router(routerDash)
     return fastapi_app
 
 

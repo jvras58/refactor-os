@@ -6,7 +6,6 @@
     <title>{{ title }}</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* Garantir que o container do editor tenha altura */
         #editor-container { height: calc(100vh - 250px); }
         #result-container { height: calc(100vh - 250px); overflow-y: auto; }
     </style>
@@ -50,7 +49,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.38.0/min/vs/loader.min.js"></script>
     
     <script>
-        // Configuração do Monaco Editor
         require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.38.0/min/vs' }});
         
         let editor;
@@ -74,7 +72,6 @@
             });
         });
 
-        // Funções de Interação com a API
         const resultContainer = document.getElementById('result-container');
 
         function formatResponse(data) {
@@ -95,7 +92,6 @@
                     </div>
                 `;
             } else if (data.detection) {
-                // RefactorResult
                 let html = formatResponse(data.detection);
                 if (data.proposal) {
                     html += `
@@ -127,7 +123,6 @@
                 html += `<p><strong>Aprovado:</strong> ${data.approved ? 'Sim' : 'Não'}</p>`;
                 return html;
             } else {
-                // Fallback para JSON
                 return `<pre>${JSON.stringify(data, null, 2)}</pre>`;
             }
         }
@@ -145,7 +140,6 @@
             resultContainer.classList.add("text-yellow-400");
 
             try {
-                // Ajuste a rota '/api/v1/...' de acordo com o seu routes.py atual
                 const response = await fetch(endpoint, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -160,7 +154,6 @@
 
                 if (response.ok) {
                     resultContainer.classList.add("text-green-400");
-                    // Formatar a resposta de forma legível
                     resultContainer.innerHTML = formatResponse(data);
                 } else {
                     resultContainer.classList.add("text-red-400");

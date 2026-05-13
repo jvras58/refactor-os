@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Garantir que o container do editor tenha altura */
+        #editor-container { height: calc(100vh - 200px); }
+        #result-container { height: calc(100vh - 200px); overflow-y: auto; }
+    </style>
+</head>
+<body class="bg-gray-900 text-white min-h-screen flex flex-col">
+
+    <header class="bg-gray-800 border-b border-gray-700 p-4 flex justify-between items-center">
+        <div>
+            <h1 class="text-xl font-bold text-blue-400">{{ title }}</h1>
+            <p class="text-sm text-gray-400">Escreva seu código Python e teste os agentes</p>
+            <input id="file-name" type="text" placeholder="Nome do arquivo (opcional)" class="mt-2 px-3 py-1 bg-gray-700 text-white rounded border border-gray-600 focus:outline-none focus:border-blue-400">
+        </div>
+        <div class="flex gap-3">
+            <button id="btn-detect" class="px-4 py-2 bg-yellow-600 hover:bg-yellow-500 text-white rounded font-medium transition">
+                🔍 Detectar Smells
+            </button>
+            <button id="btn-refactor" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded font-medium transition">
+                ✨ Refatorar Código
+            </button>
+        </div>
+    </header>
+
+    <main class="flex-1 grid grid-cols-2 gap-4 p-4">
+        
+        <div class="flex flex-col bg-gray-800 rounded border border-gray-700 overflow-hidden">
+            <div class="bg-gray-700 px-4 py-2 text-sm font-semibold border-b border-gray-600">
+                Input (Python)
+            </div>
+            <div id="editor-container" class="w-full"></div>
+        </div>
+
+        <div class="flex flex-col bg-gray-800 rounded border border-gray-700 overflow-hidden">
+            <div class="bg-gray-700 px-4 py-2 text-sm font-semibold border-b border-gray-600">
+                Output / Refactor Result
+            </div>
+            <pre id="result-container" class="p-4 text-sm text-gray-300 whitespace-pre-wrap font-mono"></pre>
+        </div>
+
+    </main>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.38.0/min/vs/loader.min.js"></script>
+    
+    <script>
+        // Configuração do Monaco Editor
+        require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.38.0/min/vs' }});
+        
+        let editor;
+
+        require(['vs/editor/editor.main'], function() {
+            editor = monaco.editor.create(document.getElementById('editor-container'), {
+                value: [
+                    'def calculate_total(items, discount_rate, tax_rate):',
+                    '    total = 0',
+                    '    for item in items:',
+                    '        total += item.price',
+                    '    ',
+                    '    total = total - (total * discount_rate)',
+                    '    total = total + (total * tax_rate)',
+                    '    return total'
+                ].join('\n'),
+                language: 'python',
+                theme: 'vs-dark',
+                automaticLayout: true,
+                minimap: { enabled: false }
+            });
+        });
+
+        // Funções de Interação com a API
+        const resultContainer = document.getElementById('result-container');
+
+        async function callAgentAPI(endpoint) {
+            if (!editor) {
+                console.log('Editor not loaded');
+                return;
+            }
+
+            const code = editor.getValue();
+            const fileName = document.getElementById('file-name').value || null;
+            console.log('Calling API:', endpoint, 'with code:', code, 'file:', fileName);
+            resultContainer.textContent = "Processando agentes... aguarde...";
+            resultContainer.classList.add("text-yellow-400");
+
+            try {
+                // Ajuste a rota '/api/v1/...' de acordo com o seu routes.py atual
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ source_code: code, file_name: fileName })
+                });
+
+                console.log('Response status:', response.status);
+                const data = await response.json();
+                console.log('Response data:', data);
+
+                resultContainer.classList.remove("text-yellow-400");
+
+                if (response.ok) {
+                    resultContainer.classList.add("text-green-400");
+                    // Se a API retornar código refatorado ou markdown de avaliação, renderizamos aqui
+                    resultContainer.textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+                } else {
+                    resultContainer.classList.add("text-red-400");
+                    resultContainer.textContent = `Erro: ${data.detail || JSON.stringify(data)}`;
+                }
+            } catch (error) {
+                console.log('Fetch error:', error);
+                resultContainer.classList.add("text-red-400");
+                resultContainer.textContent = `Erro de rede: ${error.message}`;
+            }
+        }
+
+        // Listeners dos Botões
+        document.getElementById('btn-detect').addEventListener('click', () => {
+            // Rota do detector_agent
+            callAgentAPI('/api/v1/detect'); 
+        });
+
+        document.getElementById('btn-refactor').addEventListener('click', () => {
+            // Rota do refactor_service
+            callAgentAPI('/api/v1/refactor'); 
+        });
+    </script>
+</body>
+</html>

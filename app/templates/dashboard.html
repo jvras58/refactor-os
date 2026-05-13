@@ -7,8 +7,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         /* Garantir que o container do editor tenha altura */
-        #editor-container { height: calc(100vh - 200px); }
-        #result-container { height: calc(100vh - 200px); overflow-y: auto; }
+        #editor-container { height: calc(100vh - 250px); }
+        #result-container { height: calc(100vh - 250px); overflow-y: auto; }
     </style>
 </head>
 <body class="bg-gray-900 text-white min-h-screen flex flex-col">
@@ -38,8 +38,11 @@
             <div id="editor-container" class="w-full"></div>
         </div>
 
-        <div class="flex flex-col overflow-hidden">
-            <div id="result-container" class="p-4 text-sm text-gray-300"></div>
+        <div class="flex flex-col bg-gray-800 rounded border border-gray-700 overflow-hidden">
+            <div class="bg-gray-700 px-4 py-2 text-sm font-semibold border-b border-gray-600">
+                Output
+            </div>
+            <div id="result-container" class="p-4 text-sm text-gray-300 overflow-y-auto"></div>
         </div>
 
     </main>
@@ -86,7 +89,7 @@
                         <p><strong>Tipo:</strong> ${data.smell_type}</p>
                         ${data.line_start ? `<p><strong>Linha Inicial:</strong> ${data.line_start}</p>` : ''}
                         ${data.line_end ? `<p><strong>Linha Final:</strong> ${data.line_end}</p>` : ''}
-                        ${data.affected_snippet ? `<p><strong>Trecho Afetado:</strong></p><pre class="bg-gray-800 p-2 rounded text-sm">${data.affected_snippet}</pre>` : ''}
+                        ${data.affected_snippet ? `<p><strong>Trecho Afetado:</strong></p><pre class="bg-gray-700 p-2 rounded text-sm overflow-x-auto">${data.affected_snippet}</pre>` : ''}
                         <p><strong>Justificativa:</strong></p>
                         <p class="text-gray-300">${data.reasoning}</p>
                     </div>
@@ -106,7 +109,7 @@
                                 ${data.proposal.expected_benefits.map(b => `<li>${b}</li>`).join('')}
                             </ul>
                             <p><strong>Código Refatorado:</strong></p>
-                            <pre class="bg-gray-800 p-2 rounded text-sm">${data.proposal.refactored_code}</pre>
+                            <pre class="bg-gray-700 p-2 rounded text-sm overflow-x-auto">${data.proposal.refactored_code}</pre>
                         </div>
                     `;
                 }
@@ -116,7 +119,7 @@
                             <h3 class="text-lg font-bold text-yellow-400">🔍 Revisão</h3>
                             <p><strong>Aprovado:</strong> ${data.review.is_approved ? 'Sim' : 'Não'}</p>
                             ${data.review.critique ? `<p><strong>Crítica:</strong> ${data.review.critique}</p>` : ''}
-                            ${data.review.final_validated_code ? `<p><strong>Código Final:</strong></p><pre class="bg-gray-800 p-2 rounded text-sm">${data.review.final_validated_code}</pre>` : ''}
+                            ${data.review.final_validated_code ? `<p><strong>Código Final:</strong></p><pre class="bg-gray-700 p-2 rounded text-sm overflow-x-auto">${data.review.final_validated_code}</pre>` : ''}
                         </div>
                     `;
                 }

@@ -85,7 +85,8 @@ docker compose up --build
 - `POST /api/v1/refactor` — pipeline completo Detector → Recommender → Critic com reflection loop.
 - `POST /api/v1/evaluate` — roda o dataset e retorna métricas (precision/recall/accuracy).
 - `POST /api/v1/knowledge/sync` — indexa os 5 patterns no PgVector.
-- `GET  /api/v1/health`.
+- `GET  /`          - health endpoint
+- `GET  /dashboard` - Dashboard para uso do pepiline.
 
 ## Avaliação empírica
 

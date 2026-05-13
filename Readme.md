@@ -39,6 +39,7 @@ app/
 ├── knowledge/                     # PgVector + 5 .md (1 por pattern)
 ├── services/                      # refactor / evaluation / knowledge loader
 ├── tools/                         # ast, pattern_registry, diff, syntax
+├── templates/                     # .html com o template da pagina de dashboard
 └── main.py                        # FastAPI ASGI entry point
 dataset/
 ├── examples/                      # 5 scripts seed (1 por smell)

@@ -38,11 +38,8 @@
             <div id="editor-container" class="w-full"></div>
         </div>
 
-        <div class="flex flex-col bg-gray-800 rounded border border-gray-700 overflow-hidden">
-            <div class="bg-gray-700 px-4 py-2 text-sm font-semibold border-b border-gray-600">
-                Output / Refactor Result
-            </div>
-            <pre id="result-container" class="p-4 text-sm text-gray-300 whitespace-pre-wrap font-mono"></pre>
+        <div class="flex flex-col overflow-hidden">
+            <div id="result-container" class="p-4 text-sm text-gray-300"></div>
         </div>
 
     </main>
@@ -77,6 +74,61 @@
         // Funções de Interação com a API
         const resultContainer = document.getElementById('result-container');
 
+        function formatResponse(data) {
+            if (data.has_smell !== undefined) {
+                // SmellDetection
+                const smellIcon = data.has_smell ? '🚨' : '✅';
+                const smellColor = data.has_smell ? 'text-red-400' : 'text-green-400';
+                return `
+                    <div class="mb-4">
+                        <h3 class="text-lg font-bold ${smellColor}">${smellIcon} Detecção de Smells</h3>
+                        <p><strong>Smell Detectado:</strong> ${data.has_smell ? 'Sim' : 'Não'}</p>
+                        <p><strong>Tipo:</strong> ${data.smell_type}</p>
+                        ${data.line_start ? `<p><strong>Linha Inicial:</strong> ${data.line_start}</p>` : ''}
+                        ${data.line_end ? `<p><strong>Linha Final:</strong> ${data.line_end}</p>` : ''}
+                        ${data.affected_snippet ? `<p><strong>Trecho Afetado:</strong></p><pre class="bg-gray-800 p-2 rounded text-sm">${data.affected_snippet}</pre>` : ''}
+                        <p><strong>Justificativa:</strong></p>
+                        <p class="text-gray-300">${data.reasoning}</p>
+                    </div>
+                `;
+            } else if (data.detection) {
+                // RefactorResult
+                let html = formatResponse(data.detection);
+                if (data.proposal) {
+                    html += `
+                        <div class="mb-4">
+                            <h3 class="text-lg font-bold text-blue-400">✨ Proposta de Refatoração</h3>
+                            <p><strong>Pattern Aplicado:</strong> ${data.proposal.applied_pattern}</p>
+                            <p><strong>Explicação Arquitetural:</strong></p>
+                            <p class="text-gray-300">${data.proposal.architectural_explanation}</p>
+                            <p><strong>Benefícios Esperados:</strong></p>
+                            <ul class="list-disc list-inside text-gray-300">
+                                ${data.proposal.expected_benefits.map(b => `<li>${b}</li>`).join('')}
+                            </ul>
+                            <p><strong>Código Refatorado:</strong></p>
+                            <pre class="bg-gray-800 p-2 rounded text-sm">${data.proposal.refactored_code}</pre>
+                        </div>
+                    `;
+                }
+                if (data.review) {
+                    html += `
+                        <div class="mb-4">
+                            <h3 class="text-lg font-bold text-yellow-400">🔍 Revisão</h3>
+                            <p><strong>Aprovado:</strong> ${data.review.is_approved ? 'Sim' : 'Não'}</p>
+                            ${data.review.critique ? `<p><strong>Crítica:</strong> ${data.review.critique}</p>` : ''}
+                            ${data.review.final_validated_code ? `<p><strong>Código Final:</strong></p><pre class="bg-gray-800 p-2 rounded text-sm">${data.review.final_validated_code}</pre>` : ''}
+                        </div>
+                    `;
+                }
+                html += `<p><strong>Iterações:</strong> ${data.iterations}</p>`;
+                html += `<p><strong>Aprovado:</strong> ${data.approved ? 'Sim' : 'Não'}</p>`;
+                return html;
+            } else {
+                // Fallback para JSON
+                return `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+            }
+        }
+
         async function callAgentAPI(endpoint) {
             if (!editor) {
                 console.log('Editor not loaded');
@@ -105,8 +157,8 @@
 
                 if (response.ok) {
                     resultContainer.classList.add("text-green-400");
-                    // Se a API retornar código refatorado ou markdown de avaliação, renderizamos aqui
-                    resultContainer.textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+                    // Formatar a resposta de forma legível
+                    resultContainer.innerHTML = formatResponse(data);
                 } else {
                     resultContainer.classList.add("text-red-400");
                     resultContainer.textContent = `Erro: ${data.detail || JSON.stringify(data)}`;
@@ -117,15 +169,11 @@
                 resultContainer.textContent = `Erro de rede: ${error.message}`;
             }
         }
-
-        // Listeners dos Botões
         document.getElementById('btn-detect').addEventListener('click', () => {
-            // Rota do detector_agent
             callAgentAPI('/api/v1/detect'); 
         });
 
         document.getElementById('btn-refactor').addEventListener('click', () => {
-            // Rota do refactor_service
             callAgentAPI('/api/v1/refactor'); 
         });
     </script>

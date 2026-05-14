@@ -1,9 +1,28 @@
-"""Strict registry of the 5 supported Design Patterns (anti-hallucination)."""
+﻿"""Strict registry of the 5 supported Design Patterns and smell-to-pattern mapping.
+
+This module has two responsibilities:
+
+1. Pattern reference:
+   Given a design pattern name, return its canonical intent, structure and rules.
+
+2. Smell mapping:
+   Given a detected code smell, normalize it to the project scope and return
+   the only allowed design pattern recommendation.
+
+The second responsibility is important for the Recommender Agent because it
+prevents the LLM from hallucinating patterns outside the 5 pairs defined in
+the project scope.
+"""
 from __future__ import annotations
 
 from typing import Any
 
 from agno.tools import tool
+
+
+class UnknownSmellError(ValueError):
+    """Raised when a smell is outside the supported project scope."""
+
 
 DESIGN_PATTERNS: dict[str, dict[str, Any]] = {
     "Strategy Pattern": {
@@ -75,10 +94,12 @@ DESIGN_PATTERNS: dict[str, dict[str, Any]] = {
 }
 
 
-_ALIASES = {
+_PATTERN_ALIASES = {
     "strategy": "Strategy Pattern",
+    "strategy pattern": "Strategy Pattern",
     "builder": "Builder/Parameter Object",
     "parameter object": "Builder/Parameter Object",
+    "builder/parameter object": "Builder/Parameter Object",
     "facade": "Facade/SRP",
     "srp": "Facade/SRP",
     "facade/srp": "Facade/SRP",
@@ -88,10 +109,108 @@ _ALIASES = {
 }
 
 
+# Raw labels accepted from the Detector Agent, Kaggle dataset labels,
+# or manually curated ground truth.
+#
+# Value format:
+#   raw smell label -> (canonical smell in project scope, canonical pattern)
+_SMELL_TO_PATTERN: dict[str, tuple[str, str]] = {
+    # Complex/Long Switch Statements -> Strategy Pattern
+    "switch statements": (
+        "Complex/Long Switch Statements",
+        "Strategy Pattern",
+    ),
+    "complex/long switch statements": (
+        "Complex/Long Switch Statements",
+        "Strategy Pattern",
+    ),
+    "complex switch": (
+        "Complex/Long Switch Statements",
+        "Strategy Pattern",
+    ),
+    "long switch": (
+        "Complex/Long Switch Statements",
+        "Strategy Pattern",
+    ),
+    "type checking": (
+        "Complex/Long Switch Statements",
+        "Strategy Pattern",
+    ),
+
+    # Long Parameter List -> Builder/Parameter Object
+    "long parameter list": (
+        "Long Parameter List",
+        "Builder/Parameter Object",
+    ),
+    "data clumps": (
+        "Long Parameter List",
+        "Builder/Parameter Object",
+    ),
+    "too many parameters": (
+        "Long Parameter List",
+        "Builder/Parameter Object",
+    ),
+
+    # God Class -> Facade/SRP
+    "god class": (
+        "God Class",
+        "Facade/SRP",
+    ),
+    "large class": (
+        "God Class",
+        "Facade/SRP",
+    ),
+    "low cohesion": (
+        "God Class",
+        "Facade/SRP",
+    ),
+
+    # Tight Coupling -> Dependency Injection
+    "tight coupling": (
+        "Tight Coupling",
+        "Dependency Injection",
+    ),
+    "hardcoded dependency": (
+        "Tight Coupling",
+        "Dependency Injection",
+    ),
+    "hardcoded dependencies": (
+        "Tight Coupling",
+        "Dependency Injection",
+    ),
+    "message chains": (
+        "Tight Coupling",
+        "Dependency Injection",
+    ),
+    "shotgun surgery": (
+        "Tight Coupling",
+        "Dependency Injection",
+    ),
+
+    # Duplicated Code -> Template Method
+    "duplicated code": (
+        "Duplicated Code",
+        "Template Method",
+    ),
+    "duplicate code": (
+        "Duplicated Code",
+        "Template Method",
+    ),
+    "code duplication": (
+        "Duplicated Code",
+        "Template Method",
+    ),
+}
+
+
+def _normalize_key(value: str) -> str:
+    return value.strip().lower()
+
+
 def _resolve(name: str) -> str | None:
     if name in DESIGN_PATTERNS:
         return name
-    return _ALIASES.get(name.strip().lower())
+    return _PATTERN_ALIASES.get(_normalize_key(name))
 
 
 def lookup_pattern(pattern_name: str) -> dict[str, Any]:
@@ -104,6 +223,54 @@ def lookup_pattern(pattern_name: str) -> dict[str, Any]:
     return {"name": canonical, **DESIGN_PATTERNS[canonical]}
 
 
+def normalize_smell(smell_type: str) -> str:
+    """Normalize a raw smell label into one of the 5 project smell categories."""
+    key = _normalize_key(smell_type)
+
+    if key not in _SMELL_TO_PATTERN:
+        raise UnknownSmellError(
+            f"Unsupported smell type: {smell_type}. "
+            f"Supported smell labels: {list_supported_smells()}"
+        )
+
+    normalized_smell, _ = _SMELL_TO_PATTERN[key]
+    return normalized_smell
+
+
+def resolve_pattern_for_smell(smell_type: str) -> dict[str, Any]:
+    """Resolve a detected smell into the canonical pattern recommendation.
+
+    This is the main deterministic function used by the Recommender Agent.
+
+    Example:
+        "Switch Statements" -> Strategy Pattern
+        "Large Class" -> Facade/SRP
+        "Data Clumps" -> Builder/Parameter Object
+    """
+    key = _normalize_key(smell_type)
+
+    if key not in _SMELL_TO_PATTERN:
+        raise UnknownSmellError(
+            f"Unsupported smell type: {smell_type}. "
+            f"Supported smell labels: {list_supported_smells()}"
+        )
+
+    normalized_smell, pattern_name = _SMELL_TO_PATTERN[key]
+    pattern_reference = lookup_pattern(pattern_name)
+
+    return {
+        "input_smell": smell_type,
+        "normalized_smell": normalized_smell,
+        "recommended_pattern": pattern_name,
+        "pattern_reference": pattern_reference,
+    }
+
+
+def list_supported_smells() -> list[str]:
+    """Return all raw smell labels accepted by the registry."""
+    return sorted(_SMELL_TO_PATTERN.keys())
+
+
 @tool(
     name="design_pattern_reference_tool",
     description=(
@@ -113,3 +280,14 @@ def lookup_pattern(pattern_name: str) -> dict[str, Any]:
 )
 def design_pattern_reference_tool(pattern_name: str) -> dict[str, Any]:
     return lookup_pattern(pattern_name)
+
+
+@tool(
+    name="smell_to_pattern_tool",
+    description=(
+        "Recebe um code smell detectado e retorna o smell normalizado e o único design pattern "
+        "permitido dentro do escopo do projeto."
+    ),
+)
+def smell_to_pattern_tool(smell_type: str) -> dict[str, Any]:
+    return resolve_pattern_for_smell(smell_type)

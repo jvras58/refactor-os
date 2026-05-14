@@ -28,8 +28,7 @@ services:
       APP_ENV: ${APP_ENV:-development}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       MISTRAL_API_KEY: ${MISTRAL_API_KEY:?MISTRAL_API_KEY is required}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      LLM_MODEL_ID: ${LLM_MODEL_ID:-mistral-large-latest}
+      LLM_MODEL_ID: ${LLM_MODEL_ID:-mistral-medium-latest}
       DB_URL: postgresql+psycopg://ai:ai@postgres:5432/ai
       KNOWLEDGE_TABLE: ${KNOWLEDGE_TABLE:-design_patterns_kb}
       MAX_REFLECTION_ITERATIONS: ${MAX_REFLECTION_ITERATIONS:-3}

@@ -25,7 +25,7 @@
     "smell_type": "Tight Coupling",
     "expected_pattern": "Dependency Injection",
     "line_start": 1,
-    "line_end": 22
+    "line_end": 20
   },
   {
     "file": "05_duplicated_code.py",
@@ -33,5 +33,110 @@
     "expected_pattern": "Template Method",
     "line_start": 1,
     "line_end": 30
+  },
+  {
+    "file": "06_complex_switch_payment.py",
+    "smell_type": "Complex/Long Switch Statements",
+    "expected_pattern": "Strategy Pattern",
+    "line_start": 4,
+    "line_end": 42
+  },
+  {
+    "file": "07_complex_switch_notification.py",
+    "smell_type": "Complex/Long Switch Statements",
+    "expected_pattern": "Strategy Pattern",
+    "line_start": 4,
+    "line_end": 48
+  },
+  {
+    "file": "08_complex_switch_tax.py",
+    "smell_type": "Complex/Long Switch Statements",
+    "expected_pattern": "Strategy Pattern",
+    "line_start": 4,
+    "line_end": 35
+  },
+  {
+    "file": "09_long_parameter_user.py",
+    "smell_type": "Long Parameter List",
+    "expected_pattern": "Builder/Parameter Object",
+    "line_start": 4,
+    "line_end": 41
+  },
+  {
+    "file": "10_long_parameter_report.py",
+    "smell_type": "Long Parameter List",
+    "expected_pattern": "Builder/Parameter Object",
+    "line_start": 4,
+    "line_end": 38
+  },
+  {
+    "file": "11_long_parameter_booking.py",
+    "smell_type": "Long Parameter List",
+    "expected_pattern": "Builder/Parameter Object",
+    "line_start": 4,
+    "line_end": 37
+  },
+  {
+    "file": "12_god_class_school.py",
+    "smell_type": "God Class",
+    "expected_pattern": "Facade/SRP",
+    "line_start": 4,
+    "line_end": 60
+  },
+  {
+    "file": "13_god_class_billing.py",
+    "smell_type": "God Class",
+    "expected_pattern": "Facade/SRP",
+    "line_start": 4,
+    "line_end": 57
+  },
+  {
+    "file": "14_god_class_project.py",
+    "smell_type": "God Class",
+    "expected_pattern": "Facade/SRP",
+    "line_start": 4,
+    "line_end": 56
+  },
+  {
+    "file": "15_tight_coupling_repository.py",
+    "smell_type": "Tight Coupling",
+    "expected_pattern": "Dependency Injection",
+    "line_start": 17,
+    "line_end": 31
+  },
+  {
+    "file": "16_tight_coupling_logger.py",
+    "smell_type": "Tight Coupling",
+    "expected_pattern": "Dependency Injection",
+    "line_start": 15,
+    "line_end": 28
+  },
+  {
+    "file": "17_tight_coupling_payment_gateway.py",
+    "smell_type": "Tight Coupling",
+    "expected_pattern": "Dependency Injection",
+    "line_start": 12,
+    "line_end": 27
+  },
+  {
+    "file": "18_duplicated_code_importers.py",
+    "smell_type": "Duplicated Code",
+    "expected_pattern": "Template Method",
+    "line_start": 4,
+    "line_end": 50
+  },
+  {
+    "file": "19_duplicated_code_validators.py",
+    "smell_type": "Duplicated Code",
+    "expected_pattern": "Template Method",
+    "line_start": 4,
+    "line_end": 49
+  },
+  {
+    "file": "20_duplicated_code_processors.py",
+    "smell_type": "Duplicated Code",
+    "expected_pattern": "Template Method",
+    "line_start": 4,
+    "line_end": 31
   }
 ]

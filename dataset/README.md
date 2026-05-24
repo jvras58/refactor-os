@@ -18,4 +18,4 @@ O `EvaluationService` consome este dataset e produz:
    - `line_start` / `line_end`: localização do smell no original.
 
 ## Estado atual
-Cinco exemplos seed (1 por categoria de smell). Expanda para 20 conforme a metodologia.
+20 exemplos curados (4 por categoria de smell) para avaliacao isolada do Recommender Agent.

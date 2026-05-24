@@ -14,16 +14,12 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
-import sys
 from datetime import datetime
 from pathlib import Path
 
 from app.core.schemas import ConfusionMatrix
 from app.services.evaluation_service import EvaluationService
 
-ROOT = Path(__file__).resolve().parent.parent
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
 
 def _pct(value: float) -> str:
     return f"{value * 100:5.1f}%"
@@ -49,7 +45,7 @@ def format_detector(m) -> str:
         f"  Accuracy={_pct(m.accuracy)}  Specificity={_pct(m.specificity)}",
         f"  Acerto do tipo de smell (entre detectados): {_pct(m.type_accuracy)}",
         "",
-        f"  {'arquivo':<42}{'classe':<8}{'esperado→detectado'}",
+        f"  {'arquivo':<42}{'classe':<8}{'esperado->detectado'}",
         "  " + "-" * 64,
     ]
     for r in m.per_file:
@@ -58,7 +54,7 @@ def format_detector(m) -> str:
             continue
         lines.append(
             f"  {r['file']:<42}{r['classification']:<8}"
-            f"{r['expected_smell']} → {r['detected_smell']}"
+            f"{r['expected_smell']} -> {r['detected_smell']}"
         )
     return "\n".join(lines)
 
@@ -72,18 +68,18 @@ def format_refactor(m) -> str:
         f"API preservada={_pct(m.logic_preserved_rate)}",
         f"  Aprovado pelo Critic={_pct(m.pipeline_approved_rate)}  Iterações médias={m.avg_iterations:.2f}",
         "",
-        f"  {'arquivo':<34}{'pat':<4}{'syn':<4}{'api':<4}{'ok':<4}{'esperado→aplicado'}",
+        f"  {'arquivo':<34}{'pat':<4}{'syn':<4}{'api':<4}{'ok':<4}{'esperado->aplicado'}",
         "  " + "-" * 64,
     ]
     for r in m.per_file:
         if r.get("error"):
             lines.append(f"  {r['file']:<34}ERRO")
             continue
-        tick = lambda b: " ✓ " if b else " ✗ "  # noqa: E731
+        tick = lambda b: "[x] " if b else "[ ] "  # noqa: E731
         lines.append(
             f"  {r['file']:<34}{tick(r['pattern_correct'])}{tick(r['syntax_valid'])}"
             f"{tick(r['logic_preserved'])}{tick(r['is_correct'])}"
-            f"{r['expected_pattern']} → {r['applied_pattern']}"
+            f"{r['expected_pattern']} -> {r['applied_pattern']}"
         )
     return "\n".join(lines)
 

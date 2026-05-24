@@ -80,9 +80,106 @@ class GroundTruthEntry(BaseModel):
     line_end: int | None = None
 
 
+class CriticTruthEntry(BaseModel):
+    """Labeled solution fed to the Critic in isolation to measure its judgment."""
+
+    solution_file: str = Field(description="Arquivo .py com o código refatorado a ser julgado.")
+    problem_file: str = Field(description="Arquivo .py original que originou a refatoração.")
+    applied_pattern: DesignPatternType = Field(description="Pattern que a solução declara aplicar.")
+    expected_approved: bool = Field(
+        description="Veredito correto: True se a solução é boa (Critic deveria aprovar)."
+    )
+    defect_kind: str | None = Field(
+        default=None,
+        description="Tipo do defeito quando expected_approved=False (ex.: syntax, logic, wrong_pattern).",
+    )
+
+
 class EvaluationMetrics(BaseModel):
+    """Combined legacy report kept for backward compatibility with /api/v1/evaluate."""
+
     total: int
     detector_precision: float
     detector_recall: float
     refactor_accuracy: float
     per_file: list[dict]
+
+
+class ConfusionMatrix(BaseModel):
+    """Binary confusion matrix shared by Detector and Critic evaluations."""
+
+    true_positive: int = 0
+    false_positive: int = 0
+    true_negative: int = 0
+    false_negative: int = 0
+
+    @property
+    def total(self) -> int:
+        return self.true_positive + self.false_positive + self.true_negative + self.false_negative
+
+
+class DetectorMetrics(BaseModel):
+    """Agente Rastreador — mede Falsos Positivos e Falsos Negativos da detecção.
+
+    Classe positiva = "o código contém um bad smell do escopo".
+    - false_negative: código tem problema mas o agente disse que não tem (deixou passar).
+    - false_positive: código está limpo mas o agente apontou um smell (viu onde não existe).
+    """
+
+    total: int
+    confusion: ConfusionMatrix
+    precision: float
+    recall: float
+    accuracy: float
+    f1: float
+    specificity: float
+    false_positive_rate: float
+    false_negative_rate: float
+    type_accuracy: float = Field(
+        description="Entre os arquivos com smell corretamente detectado, fração com o tipo de smell certo."
+    )
+    per_file: list[dict]
+
+
+class RefactorQualityMetrics(BaseModel):
+    """Agente Refatorador — precisão e qualidade da implementação proposta.
+
+    Uma proposta é considerada correta quando aplica o pattern esperado, mantém sintaxe
+    válida e preserva a lógica (assinaturas públicas e nº de ramos de controle).
+    """
+
+    total: int
+    accuracy: float = Field(description="Fração de problemas cuja refatoração é totalmente correta.")
+    pattern_accuracy: float
+    syntax_valid_rate: float
+    logic_preserved_rate: float
+    pipeline_approved_rate: float
+    avg_iterations: float
+    per_file: list[dict]
+
+
+class CriticMetrics(BaseModel):
+    """Agente Revisor — confiabilidade do julgamento.
+
+    Classe positiva = "a solução é correta" (o Critic deveria aprovar).
+    - false_accept_rate: soluções incorretas que o Critic aprovou (disse que estava correta).
+    - false_reject_rate: soluções corretas que o Critic reprovou (disse que estava incorreta).
+    """
+
+    total: int
+    confusion: ConfusionMatrix
+    accuracy: float
+    precision: float
+    recall: float
+    f1: float
+    false_accept_rate: float
+    false_reject_rate: float
+    per_file: list[dict]
+
+
+class FullEvaluationReport(BaseModel):
+    """Aggregates the three independent agent evaluations."""
+
+    detector: DetectorMetrics
+    refactor: RefactorQualityMetrics
+    critic: CriticMetrics

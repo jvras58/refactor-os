@@ -18,20 +18,12 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+from app.core.schemas import ConfusionMatrix
+from app.services.evaluation_service import EvaluationService
+
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-
-# Console do Windows costuma ser cp1252; garante que setas/✓/✗ não quebrem a saída.
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except (AttributeError, ValueError):
-        pass
-
-from app.core.schemas import ConfusionMatrix  # noqa: E402
-from app.services.evaluation_service import EvaluationService  # noqa: E402
-
 
 def _pct(value: float) -> str:
     return f"{value * 100:5.1f}%"
@@ -267,9 +259,6 @@ async def main() -> int:
     service = EvaluationService()
     payload: dict = {}
     rendered: list[str] = []
-
-    # Calcula tudo (chamadas caras ao LLM) e só então persiste/imprime, para nunca
-    # perder os resultados por um erro de I/O na saída.
     if run_all or args.detector:
         m = await service.evaluate_detector()
         payload["detector"] = m.model_dump()

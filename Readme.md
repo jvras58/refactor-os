@@ -32,19 +32,25 @@ Comunicação **Spec-Driven** via Pydantic em `app/core/schemas.py`.
 
 ```
 app/
-├── api/                           # FastAPI: routes: /detect /refactor /evaluate /knowledge/sync
-├── agents/                        # Detector, Recommender, Critic, Team
+├── api/                           # FastAPI: /detect /refactor /evaluate(/detector|refactor|critic|all) /knowledge/sync
+├── agents/                        # Detector, Recommender, Critic
 ├── core/                          # config, prompts, schemas (Pydantic)
 ├── db/session.py                  # PostgresDb compartilhado (Agno)
 ├── knowledge/                     # PgVector + 5 .md (1 por pattern)
-├── services/                      # refactor / evaluation / knowledge loader
+├── services/                      # refactor / evaluation / quality_checks / knowledge loader
 ├── tools/                         # ast, pattern_registry, diff, syntax
-├── templates/                     # .html com o template engine (jinja2) da pagina de dashboard
+├── templates/                     # dashboard.html (Jinja2)
 └── main.py                        # FastAPI ASGI entry point
 dataset/
-├── examples/                      # 5 scripts seed (1 por smell)
-└── ground_truth.json              # gabarito p/ Precision/Recall/Accuracy
-tests/                             # unit tests determinísticos das tools
+├── examples/                      # 10 programas COM bad smell (2 por categoria)
+├── clean/                         # 10 programas limpos (medem Falsos Positivos)
+├── solutions/                     # correct/ (10) + incorrect/ (10) — avaliam o Revisor
+├── ground_truth.json              # gabarito do Detector (10 smell + 10 limpos)
+├── critic_truth.json              # gabarito do Critic (10 corretas + 10 com defeito)
+└── reports/                       # evaluation.{md,json} gerados pela avaliação
+scripts/
+└── run_evaluation.py              # CLI de avaliação (tabelas + relatório md/json)
+tests/                             # unit tests determinísticos (tools + métricas + dataset)
 ```
 
 ## Setup

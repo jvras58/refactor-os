@@ -86,3 +86,19 @@ class EvaluationMetrics(BaseModel):
     detector_recall: float
     refactor_accuracy: float
     per_file: list[dict]
+
+
+class RecommenderEvaluationItem(BaseModel):
+    file: str
+    expected_smell: BadSmellType
+    expected_pattern: DesignPatternType
+    applied_pattern: DesignPatternType | None = None
+    pattern_match: bool = False
+    error: str | None = None
+
+
+class RecommenderEvaluationMetrics(BaseModel):
+    total: int
+    correct: int
+    recommender_accuracy: float
+    per_file: list[RecommenderEvaluationItem]

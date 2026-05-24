@@ -11,7 +11,10 @@ from app.core.schemas import (
     BadSmellType,
     EvaluationMetrics,
     GroundTruthEntry,
+    RecommenderEvaluationItem,
+    RecommenderEvaluationMetrics,
     RefactorRequest,
+    SmellDetection,
 )
 from app.services.refactor_service import RefactorService
 
@@ -94,5 +97,64 @@ class EvaluationService:
             detector_precision=precision,
             detector_recall=recall,
             refactor_accuracy=accuracy,
+            per_file=per_file,
+        )
+
+    async def evaluate_recommender(self) -> RecommenderEvaluationMetrics:
+        dataset_dir = self._settings.dataset_dir
+        ground_truth_path = dataset_dir / "ground_truth.json"
+        examples_dir = dataset_dir / "examples"
+        ground_truth = _load_ground_truth(ground_truth_path)
+
+        per_file: list[RecommenderEvaluationItem] = []
+        correct = 0
+
+        for entry in ground_truth:
+            source_path = examples_dir / entry.file
+            try:
+                if not source_path.is_file():
+                    raise FileNotFoundError(f"dataset file missing: {source_path}")
+
+                source_code = source_path.read_text(encoding="utf-8")
+                detection = SmellDetection(
+                    has_smell=entry.smell_type != BadSmellType.NO_SMELL,
+                    smell_type=entry.smell_type,
+                    line_start=entry.line_start,
+                    line_end=entry.line_end,
+                    affected_snippet=None,
+                    reasoning="Ground truth pre-classificado para avaliacao isolada do Recommender.",
+                )
+                proposal = await self._service.propose(source_code, detection)
+                pattern_match = proposal.applied_pattern == entry.expected_pattern
+                if pattern_match:
+                    correct += 1
+
+                per_file.append(
+                    RecommenderEvaluationItem(
+                        file=entry.file,
+                        expected_smell=entry.smell_type,
+                        expected_pattern=entry.expected_pattern,
+                        applied_pattern=proposal.applied_pattern,
+                        pattern_match=pattern_match,
+                    )
+                )
+            except Exception as exc:
+                logger.exception("Recommender evaluation failed for %s", entry.file)
+                per_file.append(
+                    RecommenderEvaluationItem(
+                        file=entry.file,
+                        expected_smell=entry.smell_type,
+                        expected_pattern=entry.expected_pattern,
+                        error=str(exc),
+                    )
+                )
+
+        total = len(ground_truth)
+        accuracy = _safe_div(correct, total)
+
+        return RecommenderEvaluationMetrics(
+            total=total,
+            correct=correct,
+            recommender_accuracy=accuracy,
             per_file=per_file,
         )

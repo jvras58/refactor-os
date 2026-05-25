@@ -62,6 +62,12 @@ chave de API gratuita do Mistral:
 2. Em **API Keys** gere uma nova chave (formato `oj2Z...`).
 3. Cole no `.env` como `MISTRAL_API_KEY=oj2Z...`.
 
+Para a base de conhecimento, usamos **HuggingfaceCustomEmbedder**
+(BAAI/bge-small-en-v1.5, 384 dims) via **HF Inference API** gratuita
+— sem compilacao Rust, sem provedor pago. Crie um token gratuito em
+https://huggingface.co/settings/tokens e adicione no `.env` como
+`HUGGINGFACE_API_KEY=hf_...`.
+
 ```bash
 cp .env.example .env
 # preencha MISTRAL_API_KEY=oj2Z...

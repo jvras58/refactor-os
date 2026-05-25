@@ -1,0 +1,132 @@
+[
+  {
+    "solution_file": "solutions/correct/sol_01_complex_switch.py",
+    "problem_file": "examples/01_complex_switch.py",
+    "applied_pattern": "Strategy Pattern",
+    "expected_approved": true
+  },
+  {
+    "solution_file": "solutions/correct/sol_02_long_parameter_list.py",
+    "problem_file": "examples/02_long_parameter_list.py",
+    "applied_pattern": "Builder/Parameter Object",
+    "expected_approved": true
+  },
+  {
+    "solution_file": "solutions/correct/sol_03_god_class.py",
+    "problem_file": "examples/03_god_class.py",
+    "applied_pattern": "Facade/SRP",
+    "expected_approved": true
+  },
+  {
+    "solution_file": "solutions/correct/sol_04_tight_coupling.py",
+    "problem_file": "examples/04_tight_coupling.py",
+    "applied_pattern": "Dependency Injection",
+    "expected_approved": true
+  },
+  {
+    "solution_file": "solutions/correct/sol_05_duplicated_code.py",
+    "problem_file": "examples/05_duplicated_code.py",
+    "applied_pattern": "Template Method",
+    "expected_approved": true
+  },
+  {
+    "solution_file": "solutions/correct/sol_06_complex_switch.py",
+    "problem_file": "examples/06_complex_switch.py",
+    "applied_pattern": "Strategy Pattern",
+    "expected_approved": true
+  },
+  {
+    "solution_file": "solutions/correct/sol_07_long_parameter_list.py",
+    "problem_file": "examples/07_long_parameter_list.py",
+    "applied_pattern": "Builder/Parameter Object",
+    "expected_approved": true
+  },
+  {
+    "solution_file": "solutions/correct/sol_08_god_class.py",
+    "problem_file": "examples/08_god_class.py",
+    "applied_pattern": "Facade/SRP",
+    "expected_approved": true
+  },
+  {
+    "solution_file": "solutions/correct/sol_09_tight_coupling.py",
+    "problem_file": "examples/09_tight_coupling.py",
+    "applied_pattern": "Dependency Injection",
+    "expected_approved": true
+  },
+  {
+    "solution_file": "solutions/correct/sol_10_duplicated_code.py",
+    "problem_file": "examples/10_duplicated_code.py",
+    "applied_pattern": "Template Method",
+    "expected_approved": true
+  },
+  {
+    "solution_file": "solutions/incorrect/bad_01_complex_switch.py",
+    "problem_file": "examples/01_complex_switch.py",
+    "applied_pattern": "Strategy Pattern",
+    "expected_approved": false,
+    "defect_kind": "logic"
+  },
+  {
+    "solution_file": "solutions/incorrect/bad_02_long_parameter_list.py",
+    "problem_file": "examples/02_long_parameter_list.py",
+    "applied_pattern": "Builder/Parameter Object",
+    "expected_approved": false,
+    "defect_kind": "syntax"
+  },
+  {
+    "solution_file": "solutions/incorrect/bad_03_god_class.py",
+    "problem_file": "examples/03_god_class.py",
+    "applied_pattern": "Facade/SRP",
+    "expected_approved": false,
+    "defect_kind": "signature"
+  },
+  {
+    "solution_file": "solutions/incorrect/bad_04_tight_coupling.py",
+    "problem_file": "examples/04_tight_coupling.py",
+    "applied_pattern": "Dependency Injection",
+    "expected_approved": false,
+    "defect_kind": "pattern_not_applied"
+  },
+  {
+    "solution_file": "solutions/incorrect/bad_05_duplicated_code.py",
+    "problem_file": "examples/05_duplicated_code.py",
+    "applied_pattern": "Template Method",
+    "expected_approved": false,
+    "defect_kind": "logic"
+  },
+  {
+    "solution_file": "solutions/incorrect/bad_06_complex_switch.py",
+    "problem_file": "examples/06_complex_switch.py",
+    "applied_pattern": "Strategy Pattern",
+    "expected_approved": false,
+    "defect_kind": "syntax"
+  },
+  {
+    "solution_file": "solutions/incorrect/bad_07_long_parameter_list.py",
+    "problem_file": "examples/07_long_parameter_list.py",
+    "applied_pattern": "Builder/Parameter Object",
+    "expected_approved": false,
+    "defect_kind": "forbidden_import"
+  },
+  {
+    "solution_file": "solutions/incorrect/bad_08_god_class.py",
+    "problem_file": "examples/08_god_class.py",
+    "applied_pattern": "Facade/SRP",
+    "expected_approved": false,
+    "defect_kind": "logic"
+  },
+  {
+    "solution_file": "solutions/incorrect/bad_09_tight_coupling.py",
+    "problem_file": "examples/09_tight_coupling.py",
+    "applied_pattern": "Dependency Injection",
+    "expected_approved": false,
+    "defect_kind": "logic"
+  },
+  {
+    "solution_file": "solutions/incorrect/bad_10_duplicated_code.py",
+    "problem_file": "examples/10_duplicated_code.py",
+    "applied_pattern": "Template Method",
+    "expected_approved": false,
+    "defect_kind": "pattern_not_applied"
+  }
+]

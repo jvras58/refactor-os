@@ -32,19 +32,25 @@ Comunicação **Spec-Driven** via Pydantic em `app/core/schemas.py`.
 
 ```
 app/
-├── api/                           # FastAPI: routes: /detect /refactor /evaluate /knowledge/sync
-├── agents/                        # Detector, Recommender, Critic, Team
+├── api/                           # FastAPI: /detect /refactor /evaluate(/detector|refactor|critic|all) /knowledge/sync
+├── agents/                        # Detector, Recommender, Critic
 ├── core/                          # config, prompts, schemas (Pydantic)
 ├── db/session.py                  # PostgresDb compartilhado (Agno)
 ├── knowledge/                     # PgVector + 5 .md (1 por pattern)
-├── services/                      # refactor / evaluation / knowledge loader
+├── services/                      # refactor / evaluation / quality_checks / knowledge loader
 ├── tools/                         # ast, pattern_registry, diff, syntax
-├── templates/                     # .html com o template engine (jinja2) da pagina de dashboard
+├── templates/                     # dashboard.html (Jinja2)
 └── main.py                        # FastAPI ASGI entry point
 dataset/
-├── examples/                      # 5 scripts seed (1 por smell)
-└── ground_truth.json              # gabarito p/ Precision/Recall/Accuracy
-tests/                             # unit tests determinísticos das tools
+├── examples/                      # 10 programas COM bad smell (2 por categoria)
+├── clean/                         # 10 programas limpos (medem Falsos Positivos)
+├── solutions/                     # correct/ (10) + incorrect/ (10) — avaliam o Revisor
+├── ground_truth.json              # gabarito do Detector (10 smell + 10 limpos)
+├── critic_truth.json              # gabarito do Critic (10 corretas + 10 com defeito)
+└── reports/                       # evaluation.{md,json} gerados pela avaliação
+scripts/
+└── run_evaluation.py              # CLI de avaliação (tabelas + relatório md/json)
+tests/                             # unit tests determinísticos (tools + métricas + dataset)
 ```
 
 ## Setup
@@ -84,22 +90,37 @@ docker compose up --build
 
 - `POST /api/v1/detect` — apenas o Detector.
 - `POST /api/v1/refactor` — pipeline completo Detector → Recommender → Critic com reflection loop.
-- `POST /api/v1/evaluate` — roda o dataset e retorna métricas (precision/recall/accuracy).
+- `POST /api/v1/evaluate` — relatório combinado legado (precision/recall/accuracy).
+- `POST /api/v1/evaluate/detector` — **Agente Rastreador**: Falsos Positivos / Falsos Negativos.
+- `POST /api/v1/evaluate/refactor` — **Agente Refatorador**: precisão/qualidade da solução.
+- `POST /api/v1/evaluate/critic` — **Agente Revisor**: false accept / false reject.
+- `POST /api/v1/evaluate/all` — os três relatórios de uma vez.
 - `POST /api/v1/knowledge/sync` — indexa os 5 patterns no PgVector.
 - `GET  /`          - health endpoint
 - `GET  /dashboard` - Dashboard para uso do pepiline.
 
 ## Avaliação empírica
 
+Três avaliações independentes, uma por agente (escopo 10 problemas + 10 soluções):
+
+| Agente | Mede | Endpoint |
+|---|---|---|
+| **Rastreador** (Detector) | Falsos Negativos (deixou passar) e Falsos Positivos (viu onde não há) | `/evaluate/detector` |
+| **Refatorador** (Recommender) | Pattern correto + sintaxe válida + API preservada | `/evaluate/refactor` |
+| **Revisor** (Critic) | False Accept (aprovou incorreta) e False Reject (reprovou correta) | `/evaluate/critic` |
+
 ```bash
 # 1. indexar a base de patterns
 curl -X POST http://localhost:8000/api/v1/knowledge/sync
-# 2. rodar avaliação contra o ground truth
-curl -X POST http://localhost:8000/api/v1/evaluate
+
+# 2a. via CLI — imprime tabelas e gera o relatório (.md auto-contido + .json)
+uv run python scripts/run_evaluation.py --all --md dataset/reports/evaluation.md --json dataset/reports/evaluation.json
+
+# 2b. via API — relatório completo
+curl -X POST http://localhost:8000/api/v1/evaluate/all
 ```
 
-Métricas reportadas: **Detector Precision**, **Detector Recall**, **Refactor Accuracy**.
-Expanda o dataset para 20 scripts seguindo `dataset/README.md`.
+O dataset (`dataset/README.md`) já traz os 10/10 de cada eixo; é só expandir se quiser mais.
 
 ## Tests
 

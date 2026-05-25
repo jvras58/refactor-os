@@ -7,7 +7,7 @@ Guia prático para subir o `refactor-os` e exercitar a pipeline.
 - Python 3.13+
 - [`uv`](https://docs.astral.sh/uv/) para dependências
 - Docker (opcional, para Postgres+pgvector)
-- Chave da Groq (`MISTRAL_API_KEY`) — gratuita em [console.mistral.ai](https://console.mistral.ai) → **API Keys** → *Create API Key* (formato `oj2Z...`)
+- Chave da Mistral (`MISTRAL_API_KEY`) — gratuita em [console.mistral.ai](https://console.mistral.ai) → **API Keys** → *Create API Key* (formato `oj2Z...`)
 - Token do HuggingFace (`HUGGINGFACE_API_KEY`) — gratuito em [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens) → *New token* → tipo **Read** (formato `hf_...`). Usado para embeddings via Inference API, sem custo.
 
 ## 2. Setup
@@ -15,7 +15,7 @@ Guia prático para subir o `refactor-os` e exercitar a pipeline.
 ```bash
 git clone <repo>
 cd refactor-os
-cp .env.example .env       # preencha MISTRAL_API_KEY
+cp .env.example .env       # preencha MISTRAL_API_KEY e HUGGINGFACE_API_KEY
 uv sync --extra dev
 ```
 
@@ -41,7 +41,6 @@ Sobe `agnohq/pgvector:16` na porta `5532`. Healthcheck embutido.
 > **Embeddings via HuggingFace Inference API (gratuita):** o projeto usa
 > `HuggingfaceCustomEmbedder` com `BAAI/bge-small-en-v1.5` (384 dims) — sem custo, sem
 > compilação Rust. Requer apenas `HUGGINGFACE_API_KEY` (token Read gratuito do HF).
-> ```
 
 ## 4. Rodar a aplicação
 
@@ -69,6 +68,10 @@ Base: `http://127.0.0.1:8000/api/v1`
 | POST   | `/detect`          | Executa **somente** o Detector — retorna `SmellDetection`.  |
 | POST   | `/refactor`        | Pipeline completa (Detector→Recommender→Critic + reflection). |
 | POST   | `/evaluate`        | Roda o `dataset/` e retorna métricas (precision/recall/accuracy). |
+| POST   | `/evaluate/detector` | Avalia apenas o Detector (FP/FN).                              |
+| POST   | `/evaluate/refactor` | Avalia apenas o Recommender (qualidade/refatoracao).           |
+| POST   | `/evaluate/critic`  | Avalia apenas o Critic (false accept/false reject).            |
+| POST   | `/evaluate/all`     | Roda as 3 avaliacoes de uma vez.                                |
 | POST   | `/knowledge/sync`  | Indexa os 5 `.md` de patterns no PgVector.                  |
 
 ## 6. Fluxo recomendado de uso
@@ -194,6 +197,7 @@ Os agentes em si são exercitados pelo dataset de avaliação.
 |------------------------------|------------------------------------------------------|-----------------------------------|
 | `MISTRAL_API_KEY`            | —                                                    | Obrigatória (gere em https://console.mistral.ai). |
 | `LLM_MODEL_ID`               | `mistral-medium-latest`                              | Modelo Mistral servido pela Mistral.   |
+| `HUGGINGFACE_API_KEY`        | —                                                    | Token Read do HF para embeddings via Inference API. |
 | `DB_URL`                     | `postgresql+psycopg://ai:ai@localhost:5532/ai`       | Postgres+pgvector.                |
 | `KNOWLEDGE_TABLE`            | `design_patterns_kb`                                 | Tabela do KB.                     |
 | `MAX_REFLECTION_ITERATIONS`  | `3`                                                  | Limite do reflection loop.        |
@@ -204,7 +208,8 @@ Os agentes em si são exercitados pelo dataset de avaliação.
 
 | Sintoma                                    | Causa provável                              | Ação                                                 |
 |--------------------------------------------|---------------------------------------------|------------------------------------------------------|
-| `MISTRAL_API_KEY is required`                 | `.env` não preenchido.                      | Preencha `MISTRAL_API_KEY` (gere em console.groq.com).  |
+| `MISTRAL_API_KEY is required`                 | `.env` não preenchido.                      | Preencha `MISTRAL_API_KEY` (gere em https://console.mistral.ai).  |
 | `401 Unauthorized` da Mistral                 | Chave inválida / revogada.                  | Gere uma nova em https://console.mistral.ai → API Keys.        |
+| `401 Unauthorized` do HuggingFace             | Token inválido / sem permissao.             | Gere um token Read em https://huggingface.co/settings/tokens.  |
 | Conexão recusada na porta 5532             | Postgres não subiu.                         | `docker compose up -d postgres`.                     |     |
 | Reflection sempre estoura `iterations=3`   | Crítica do Critic não está sendo acionável. | Ajuste o prompt em `app/core/prompts.py`.            |

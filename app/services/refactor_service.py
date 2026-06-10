@@ -25,6 +25,7 @@ from app.core.schemas import (
     ReflectionReview,
     SmellDetection,
 )
+from app.utils.retry import arun_with_backoff
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +51,7 @@ class RefactorService:
             "Use obrigatoriamente `ast_analyzer_tool` antes de concluir.\n\n"
             f"```python\n{source_code}\n```"
         )
-        response = await self._detector.arun(prompt)
+        response = await arun_with_backoff(self._detector.arun, prompt, label="Detector")
         content = response.content
         if not isinstance(content, SmellDetection):
             raise ValueError(f"Detector retornou tipo inesperado: {type(content)} — {content}")
@@ -80,7 +81,7 @@ class RefactorService:
             "Retorne RefactoringProposal. "
             "No campo `refactored_code` use apenas aspas simples ou duplas — nunca aspas triplas."
         )
-        response = await self._recommender.arun(prompt)
+        response = await arun_with_backoff(self._recommender.arun, prompt, label="Recommender")
         content = response.content
         if not isinstance(content, RefactoringProposal):
             raise ValueError(f"Recommender retornou tipo inesperado: {type(content)} — {content}")
@@ -101,7 +102,7 @@ class RefactorService:
             "Avalie os 5 critérios das instruções e retorne ReflectionReview. "
             "Defina `final_validated_code=null`."
         )
-        response = await self._critic.arun(prompt)
+        response = await arun_with_backoff(self._critic.arun, prompt, label="Critic")
         content = response.content
         if not isinstance(content, ReflectionReview):
             raise ValueError(f"Critic retornou tipo inesperado: {type(content)} — {content}")

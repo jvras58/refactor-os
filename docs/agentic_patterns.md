@@ -60,6 +60,63 @@ referenciar o número do critério que falhou.
 
 ---
 
+### 15 · Few-Shot Prompting (Recommender + Critic)
+
+**Problema resolvido:** os prompts originais do Recommender e do Critic eram
+**zero-shot** — descreviam o que fazer, mas não mostravam exemplos canônicos da
+saída esperada. Resultado prático no baseline (`dataset/reports/evaluation_baseline.md`):
+
+| Agente | Métrica chave (baseline) | Gap |
+|---|---|---|
+| Detector | F1 = 1.000 | — (saturado) |
+| Recommender | Accuracy = 0.600 | "API pública preservada" = 0.600 |
+| Critic | F1 = 0.941 | 1 false reject |
+
+O Recommender errava sobretudo o **critério 4** do Critic ("assinaturas públicas
+preservadas") — sintaxe e pattern saíam corretos, mas a função pública mudava
+de assinatura e o wrapper fino não era escrito. Esse é exatamente o tipo de
+padrão que few-shot resolve: o LLM imita a forma do exemplo.
+
+**Implementação:** bloco `## Exemplos (few-shot)` adicionado ao final de
+[`RECOMMENDER_INSTRUCTIONS`](../app/core/prompts.py#L68) e
+[`CRITIC_INSTRUCTIONS`](../app/core/prompts.py#L165) em `app/core/prompts.py`.
+Os exemplos são extraídos do próprio dataset (`dataset/examples/` +
+`dataset/solutions/correct/`) e mantidos compactos para caber no budget de
+contexto do Mistral.
+
+- **Recommender — 2 exemplos**:
+  - *Strategy Pattern* (Complex Switch → dict de estratégias).
+  - *Template Method* (Duplicated Code → base abstrata + hook).
+
+  Ambos exibem três sinais que o agente precisa internalizar:
+  (a) `refactored_code` em uma única string JSON (sem aspas triplas);
+  (b) wrapper preservando a assinatura pública original; (c)
+  `architectural_explanation` numerado passo a passo.
+
+- **Critic — 3 exemplos**:
+  - Aprovação (Strategy correto) → mostra como amarrar a decisão aos 5 critérios na `critique`.
+  - Rejeição por pattern errado (critério 3) → cita o número do critério + ação corrigível.
+  - Rejeição por assinatura quebrada (critério 4) → mesmo formato, critério diferente.
+
+**Por que NÃO no Detector:** o baseline já marcava F1 = 1.000 sobre 20 amostras
+(10 com smell + 10 limpas). Few-shot ali só adiciona ruído ao prompt — risco
+de regressão sem upside mensurável. Mantido **zero-shot** no Detector.
+
+**Tradeoff assumido:** o prompt do Recommender passou de ~2k para ~4.8k chars e
+o do Critic de ~1.6k para ~4.2k. Em troca, o pipeline fica mais robusto contra
+falhas de forma (markdown wrapping, aspas triplas no `refactored_code`) e
+contra inconsistência no formato da `critique`. O custo extra por chamada é
+amortizado pelo cache de prompt do Mistral.
+
+**Observação metodológica:** few-shot é o passo 1 de uma estratégia maior de
+melhoria iterativa — antes de partir para fine-tuning ou RL, que exigem dataset
+muito maior e infra adicional, fechamos o ciclo "edita prompt → roda
+`/evaluate/all` → mede delta" usando o próprio harness de avaliação.
+
+**Arquivos:** `app/core/prompts.py`
+
+---
+
 ### 12 · Exception Handling and Recovery
 
 **Problema resolvido:** Qualquer falha de rede, timeout na Groq, ou resposta malformada do LLM

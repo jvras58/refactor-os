@@ -230,8 +230,23 @@ curl -s -X POST http://localhost:8000/api/v1/evaluate/detector \
   | python -m json.tool
 ```
 
-O endpoint agregado `/evaluate/all` continua **somente** sobre o dataset fixo — ad-hoc só
-vale para os três endpoints por agente.
+O endpoint agregado `/evaluate/all` também aceita body ad-hoc, com até três seções
+opcionais (`detector`, `refactor`, `critic`) — cada uma carrega seu próprio `samples`.
+Seções ausentes caem no dataset, então dá pra **misturar** (ex.: rodar o Detector sobre
+amostras submetidas e os outros dois sobre o dataset numa única chamada):
+
+```bash
+# Misto — só o Detector vai ad-hoc; Refatorador e Revisor seguem com o dataset
+curl -X POST http://localhost:8000/api/v1/evaluate/all \
+  -H "Content-Type: application/json" \
+  -d '{
+    "detector": {
+      "samples": [
+        {"name":"meu_caso","source_code":"class Big: ...","expected_smell":"God Class"}
+      ]
+    }
+  }'
+```
 
 ## Tests
 

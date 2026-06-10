@@ -398,9 +398,17 @@ class EvaluationService:
         )
 
     # ---------------------------------------------------------------- combined
-    async def evaluate_all(self) -> FullEvaluationReport:
+    async def evaluate_all(
+        self,
+        detector_samples: list[DetectorEvalSample] | None = None,
+        refactor_samples: list[RefactorEvalSample] | None = None,
+        critic_samples: list[CriticEvalSample] | None = None,
+    ) -> FullEvaluationReport:
+        """Roda as três avaliações. Cada lista de samples é independente: ``None``
+        deixa o respectivo agente cair no dataset; lista preenchida ativa o modo
+        ad-hoc só para aquele agente."""
         return FullEvaluationReport(
-            detector=await self.evaluate_detector(),
-            refactor=await self.evaluate_refactor(),
-            critic=await self.evaluate_critic(),
+            detector=await self.evaluate_detector(samples=detector_samples),
+            refactor=await self.evaluate_refactor(samples=refactor_samples),
+            critic=await self.evaluate_critic(samples=critic_samples),
         )

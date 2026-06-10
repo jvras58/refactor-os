@@ -148,6 +148,40 @@ def test_critic_evaluates_submitted_samples(evaluation_service):
     assert {row["solution_file"] for row in m.per_file} == {"ok1", "bad1"}
 
 
+def test_evaluate_all_mixes_dataset_and_submitted_samples(evaluation_service, write_text, write_json):
+    """Detector ad-hoc + Refatorador/Revisor dataset numa mesma chamada."""
+    write_text("prob.py", "def x():\n    return 0\n")
+    write_text("p1.py", "GOD")
+    write_text("ok1.py", "APPROVE")
+    write_json(
+        "ground_truth.json",
+        [{"file": "p1.py", "smell_type": "God Class", "expected_pattern": "Facade/SRP"}],
+    )
+    write_json(
+        "critic_truth.json",
+        [{
+            "solution_file": "ok1.py",
+            "problem_file": "prob.py",
+            "applied_pattern": "Strategy Pattern",
+            "expected_approved": True,
+        }],
+    )
+    detector_samples = [
+        DetectorEvalSample(source_code="GOD", expected_smell=BadSmellType.GOD_CLASS, name="ad-hoc"),
+    ]
+
+    report = asyncio.run(
+        evaluation_service.evaluate_all(detector_samples=detector_samples)
+    )
+
+    assert report.detector.total == 1
+    assert {row["file"] for row in report.detector.per_file} == {"ad-hoc"}
+    assert report.refactor.total == 1
+    assert {row["file"] for row in report.refactor.per_file} == {"p1.py"}
+    assert report.critic.total == 1
+    assert {row["solution_file"] for row in report.critic.per_file} == {"ok1.py"}
+
+
 def test_evaluate_detector_dataset_path_still_works(evaluation_service, write_text, write_json):
     """Regressão: passar samples=None continua lendo ground_truth.json."""
     write_text("p1.py", "GOD")

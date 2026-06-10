@@ -70,7 +70,7 @@ Base: `http://127.0.0.1:8000/api/v1`
 | POST   | `/evaluate/detector` | Avalia o Detector (FP/FN). Body vazio → dataset; body com `samples` → código submetido. |
 | POST   | `/evaluate/refactor` | Avalia o Recommender (qualidade/refatoração). Body vazio → dataset; body com `samples` → código submetido. |
 | POST   | `/evaluate/critic`  | Avalia o Critic (false accept/false reject). Body vazio → dataset; body com `samples` → código submetido. |
-| POST   | `/evaluate/all`     | Roda as 3 avaliações de uma vez (sempre sobre o dataset). |
+| POST   | `/evaluate/all`     | Roda as 3 avaliações de uma vez. Body vazio → tudo no dataset; body com `detector`/`refactor`/`critic` → cada seção pode ir ad-hoc independentemente. |
 | POST   | `/knowledge/sync`  | Indexa os 5 `.md` de patterns no PgVector.                  |
 
 ## 6. Fluxo recomendado de uso

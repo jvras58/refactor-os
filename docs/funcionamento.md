@@ -374,7 +374,10 @@ entrada:
 
 - `evaluate_all` ([evaluation_service.py](../app/services/evaluation_service.py))
   agrega os três em `FullEvaluationReport` e é exposto via
-  `POST /api/v1/evaluate/all`. Sempre roda sobre o dataset fixo.
+  `POST /api/v1/evaluate/all`. Aceita body opcional com até três seções
+  (`detector`/`refactor`/`critic`), cada uma com seu próprio `samples`; seções
+  ausentes caem no dataset, permitindo misturar ad-hoc e dataset numa única
+  chamada.
 - Os três endpoints por agente (`/evaluate/{detector,refactor,critic}`) também
   aceitam um body com `samples` para avaliar **código submetido**
   pelo usuário no lugar do dataset — útil pra rodar a métrica sobre amostras

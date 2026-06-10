@@ -220,3 +220,16 @@ class CriticEvalRequest(BaseModel):
     """Body opcional do POST /evaluate/critic. Vazio → roda sobre o dataset."""
 
     samples: list[CriticEvalSample] | None = None
+
+
+class FullEvalRequest(BaseModel):
+    """Body opcional do POST /evaluate/all.
+
+    Cada seção é independente: ausente/vazia → o agente roda sobre o dataset;
+    com ``samples`` → roda sobre o código submetido. Permite misturar (ex.:
+    Detector ad-hoc + Refatorador e Revisor sobre o dataset).
+    """
+
+    detector: DetectorEvalRequest | None = None
+    refactor: RefactorEvalRequest | None = None
+    critic: CriticEvalRequest | None = None

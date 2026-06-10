@@ -11,6 +11,7 @@ from app.core.schemas import (
     CriticMetrics,
     DetectorEvalRequest,
     DetectorMetrics,
+    FullEvalRequest,
     FullEvaluationReport,
     RefactorEvalRequest,
     RefactorQualityMetrics,
@@ -68,9 +69,25 @@ async def evaluate_critic(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
-async def evaluate_all(service: EvalDep) -> FullEvaluationReport:
-    """Relatório completo dos três agentes (apenas sobre o dataset fixo)."""
+async def evaluate_all(
+    service: EvalDep,
+    body: Annotated[FullEvalRequest | None, Body()] = None,
+) -> FullEvaluationReport:
+    """Relatório completo dos três agentes.
+
+    Body vazio → todos rodam sobre o dataset.
+    Body com ``detector``/``refactor``/``critic`` preenchidos (com ``samples``)
+    → cada agente individualmente passa pro modo ad-hoc; os ausentes continuam
+    sobre o dataset.
+    """
+    detector_samples = body.detector.samples if body and body.detector else None
+    refactor_samples = body.refactor.samples if body and body.refactor else None
+    critic_samples = body.critic.samples if body and body.critic else None
     try:
-        return await service.evaluate_all()
+        return await service.evaluate_all(
+            detector_samples=detector_samples,
+            refactor_samples=refactor_samples,
+            critic_samples=critic_samples,
+        )
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc

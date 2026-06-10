@@ -3,14 +3,17 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import Depends, HTTPException
+from fastapi import Body, Depends, HTTPException
 
 from app.api.dependencies import get_evaluation_service
 from app.core.schemas import (
+    CriticEvalRequest,
     CriticMetrics,
+    DetectorEvalRequest,
     DetectorMetrics,
     EvaluationMetrics,
     FullEvaluationReport,
+    RefactorEvalRequest,
     RefactorQualityMetrics,
 )
 from app.services.evaluation_service import EvaluationService
@@ -25,32 +28,56 @@ async def evaluate(service: EvalDep) -> EvaluationMetrics:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
-async def evaluate_detector(service: EvalDep) -> DetectorMetrics:
-    """Agente Rastreador — falsos positivos e falsos negativos da detecção."""
+async def evaluate_detector(
+    service: EvalDep,
+    body: Annotated[DetectorEvalRequest | None, Body()] = None,
+) -> DetectorMetrics:
+    """Agente Rastreador — falsos positivos e falsos negativos da detecção.
+
+    Body vazio (ou sem ``samples``) → roda sobre o dataset.
+    Body com ``samples`` → roda sobre o código submetido pelo usuário.
+    """
+    samples = body.samples if body else None
     try:
-        return await service.evaluate_detector()
+        return await service.evaluate_detector(samples=samples)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
-async def evaluate_refactor(service: EvalDep) -> RefactorQualityMetrics:
-    """Agente Refatorador — precisão/qualidade da solução proposta."""
+async def evaluate_refactor(
+    service: EvalDep,
+    body: Annotated[RefactorEvalRequest | None, Body()] = None,
+) -> RefactorQualityMetrics:
+    """Agente Refatorador — precisão/qualidade da solução proposta.
+
+    Body vazio (ou sem ``samples``) → roda sobre o dataset.
+    Body com ``samples`` → roda sobre o código submetido pelo usuário.
+    """
+    samples = body.samples if body else None
     try:
-        return await service.evaluate_refactor()
+        return await service.evaluate_refactor(samples=samples)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
-async def evaluate_critic(service: EvalDep) -> CriticMetrics:
-    """Agente Revisor — confiabilidade do julgamento (false accept / false reject)."""
+async def evaluate_critic(
+    service: EvalDep,
+    body: Annotated[CriticEvalRequest | None, Body()] = None,
+) -> CriticMetrics:
+    """Agente Revisor — confiabilidade do julgamento (false accept / false reject).
+
+    Body vazio (ou sem ``samples``) → roda sobre o dataset.
+    Body com ``samples`` → roda sobre o código submetido pelo usuário.
+    """
+    samples = body.samples if body else None
     try:
-        return await service.evaluate_critic()
+        return await service.evaluate_critic(samples=samples)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 async def evaluate_all(service: EvalDep) -> FullEvaluationReport:
-    """Relatório completo dos três agentes."""
+    """Relatório completo dos três agentes (apenas sobre o dataset fixo)."""
     try:
         return await service.evaluate_all()
     except FileNotFoundError as exc:

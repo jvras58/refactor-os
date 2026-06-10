@@ -3,6 +3,14 @@ from __future__ import annotations
 
 import asyncio
 
+from app.core.schemas import (
+    BadSmellType,
+    CriticEvalSample,
+    DesignPatternType,
+    DetectorEvalSample,
+    RefactorEvalSample,
+)
+
 
 def test_detector_confusion_matrix(evaluation_service, write_text, write_json):
     write_text("p1.py", "GOD")  # smell -> detected: TP
@@ -74,3 +82,78 @@ def test_critic_confusion_matrix(evaluation_service, write_text, write_json):
     assert m.false_accept_rate == 0.5  # 1 incorreta aprovada de 2 incorretas
     assert m.false_reject_rate == 0.5  # 1 correta reprovada de 2 corretas
     assert m.accuracy == 0.5
+
+
+def test_detector_evaluates_submitted_samples(evaluation_service):
+    samples = [
+        DetectorEvalSample(source_code="GOD", expected_smell=BadSmellType.GOD_CLASS, name="ad-hoc-1"),
+        DetectorEvalSample(source_code="NONE", expected_smell=BadSmellType.GOD_CLASS, name="ad-hoc-2"),
+        DetectorEvalSample(source_code="NONE", expected_smell=BadSmellType.NO_SMELL, name="ad-hoc-3"),
+        DetectorEvalSample(source_code="GOD", expected_smell=BadSmellType.NO_SMELL, name="ad-hoc-4"),
+    ]
+    m = asyncio.run(evaluation_service.evaluate_detector(samples=samples))
+
+    assert (m.confusion.true_positive, m.confusion.false_negative) == (1, 1)
+    assert (m.confusion.false_positive, m.confusion.true_negative) == (1, 1)
+    assert {row["file"] for row in m.per_file} == {"ad-hoc-1", "ad-hoc-2", "ad-hoc-3", "ad-hoc-4"}
+    assert m.precision == 0.5
+    assert m.recall == 0.5
+
+
+def test_refactor_evaluates_submitted_samples(evaluation_service):
+    samples = [
+        RefactorEvalSample(
+            source_code="def alpha():\n    return 1\n",
+            expected_pattern=DesignPatternType.FACADE_SRP,
+            name="p1.py",
+        ),
+        RefactorEvalSample(
+            source_code="def beta():\n    return 2\n",
+            expected_pattern=DesignPatternType.BUILDER,
+            name="p2.py",
+        ),
+    ]
+    m = asyncio.run(evaluation_service.evaluate_refactor(samples=samples))
+
+    assert m.total == 2
+    assert m.accuracy == 0.5
+    assert m.pattern_accuracy == 0.5
+    assert m.syntax_valid_rate == 1.0
+
+
+def test_critic_evaluates_submitted_samples(evaluation_service):
+    samples = [
+        CriticEvalSample(
+            problem_code="def x():\n    return 0\n",
+            solution_code="APPROVE",
+            applied_pattern=DesignPatternType.STRATEGY,
+            expected_approved=True,
+            name="ok1",
+        ),
+        CriticEvalSample(
+            problem_code="def x():\n    return 0\n",
+            solution_code="REJECT",
+            applied_pattern=DesignPatternType.STRATEGY,
+            expected_approved=False,
+            defect_kind="logic",
+            name="bad1",
+        ),
+    ]
+    m = asyncio.run(evaluation_service.evaluate_critic(samples=samples))
+
+    assert m.total == 2
+    assert m.confusion.true_positive == 1
+    assert m.confusion.true_negative == 1
+    assert m.accuracy == 1.0
+    assert {row["solution_file"] for row in m.per_file} == {"ok1", "bad1"}
+
+
+def test_evaluate_detector_dataset_path_still_works(evaluation_service, write_text, write_json):
+    """Regressão: passar samples=None continua lendo ground_truth.json."""
+    write_text("p1.py", "GOD")
+    write_json(
+        "ground_truth.json",
+        [{"file": "p1.py", "smell_type": "God Class", "expected_pattern": "Facade/SRP"}],
+    )
+    m = asyncio.run(evaluation_service.evaluate_detector())
+    assert m.confusion.true_positive == 1

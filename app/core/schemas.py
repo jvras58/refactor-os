@@ -183,3 +183,50 @@ class FullEvaluationReport(BaseModel):
     detector: DetectorMetrics
     refactor: RefactorQualityMetrics
     critic: CriticMetrics
+
+
+class DetectorEvalSample(BaseModel):
+    """Amostra rotulada para avaliar o Detector com código submetido pelo usuário."""
+
+    source_code: str = Field(min_length=1, max_length=50_000)
+    expected_smell: BadSmellType
+    expected_pattern: DesignPatternType | None = None
+    name: str | None = Field(default=None, description="Rótulo opcional para identificar a amostra nos relatórios.")
+
+
+class RefactorEvalSample(BaseModel):
+    """Amostra rotulada para avaliar o Refatorador com código submetido pelo usuário."""
+
+    source_code: str = Field(min_length=1, max_length=50_000)
+    expected_pattern: DesignPatternType
+    expected_smell: BadSmellType | None = None
+    name: str | None = Field(default=None, description="Rótulo opcional para identificar a amostra nos relatórios.")
+
+
+class CriticEvalSample(BaseModel):
+    """Amostra rotulada para avaliar o Critic com código submetido pelo usuário."""
+
+    problem_code: str = Field(min_length=1, max_length=50_000)
+    solution_code: str = Field(min_length=1, max_length=50_000)
+    applied_pattern: DesignPatternType
+    expected_approved: bool
+    defect_kind: str | None = None
+    name: str | None = Field(default=None, description="Rótulo opcional para identificar a amostra nos relatórios.")
+
+
+class DetectorEvalRequest(BaseModel):
+    """Body opcional do POST /evaluate/detector. Vazio → roda sobre o dataset."""
+
+    samples: list[DetectorEvalSample] | None = None
+
+
+class RefactorEvalRequest(BaseModel):
+    """Body opcional do POST /evaluate/refactor. Vazio → roda sobre o dataset."""
+
+    samples: list[RefactorEvalSample] | None = None
+
+
+class CriticEvalRequest(BaseModel):
+    """Body opcional do POST /evaluate/critic. Vazio → roda sobre o dataset."""
+
+    samples: list[CriticEvalSample] | None = None

@@ -128,6 +128,112 @@ curl -X POST http://localhost:8000/api/v1/evaluate/all
 
 O dataset (`dataset/README.md`) já traz os 10/10 de cada eixo; é só expandir se quiser mais.
 
+### Avaliação com código submetido (ad-hoc)
+
+Os endpoints por agente (`/evaluate/detector`, `/evaluate/refactor`, `/evaluate/critic`)
+têm **comportamento dual**:
+
+- **Body vazio** → roda sobre o dataset fixo (comportamento padrão, igual ao anterior).
+- **Body com `samples`** → roda sobre as amostras rotuladas enviadas, devolvendo as mesmas
+  métricas (matriz de confusão, precision/recall/F1, per_file) calculadas só sobre o
+  que foi enviado.
+
+O rótulo esperado é **obrigatório** em cada amostra — sem ele não há como computar
+TP/FP/TN/FN; payloads sem rótulo retornam `422`.
+
+#### Schema das amostras
+
+| Endpoint | Campos por amostra |
+|---|---|
+| `/evaluate/detector` | `source_code`, `expected_smell`, `name?`, `expected_pattern?` |
+| `/evaluate/refactor` | `source_code`, `expected_pattern`, `name?`, `expected_smell?` |
+| `/evaluate/critic`   | `problem_code`, `solution_code`, `applied_pattern`, `expected_approved`, `name?`, `defect_kind?` |
+
+Valores aceitos para `expected_smell`: `Complex/Long Switch Statements`, `Long Parameter List`,
+`God Class`, `Tight Coupling`, `Duplicated Code`, `No Smell Detected`.
+
+Valores aceitos para `expected_pattern`/`applied_pattern`: `Strategy Pattern`,
+`Builder/Parameter Object`, `Facade/SRP`, `Dependency Injection`, `Template Method`, `None`.
+
+#### Exemplos
+
+```bash
+# Detector — mistura amostras com e sem smell para medir FP/FN
+curl -X POST http://localhost:8000/api/v1/evaluate/detector \
+  -H "Content-Type: application/json" \
+  -d '{
+    "samples": [
+      {
+        "name": "meu_god_class",
+        "source_code": "class Big:\n    def m1(self): ...\n    def m2(self): ...\n",
+        "expected_smell": "God Class"
+      },
+      {
+        "name": "meu_codigo_limpo",
+        "source_code": "def add(a, b):\n    return a + b\n",
+        "expected_smell": "No Smell Detected"
+      }
+    ]
+  }'
+
+# Refatorador — cada amostra é um problema rotulado com o pattern esperado
+curl -X POST http://localhost:8000/api/v1/evaluate/refactor \
+  -H "Content-Type: application/json" \
+  -d '{
+    "samples": [
+      {
+        "name": "switch_grande",
+        "source_code": "def calc(op, a, b):\n    if op == \"sum\": return a+b\n    elif op == \"sub\": return a-b\n",
+        "expected_pattern": "Strategy Pattern"
+      }
+    ]
+  }'
+
+# Revisor — problema original + solução proposta + veredito esperado
+curl -X POST http://localhost:8000/api/v1/evaluate/critic \
+  -H "Content-Type: application/json" \
+  -d '{
+    "samples": [
+      {
+        "name": "solucao_correta",
+        "problem_code": "class Big:\n    def m1(self): ...\n",
+        "solution_code": "class Big:\n    def m1(self): ...\n",
+        "applied_pattern": "Facade/SRP",
+        "expected_approved": true
+      }
+    ]
+  }'
+```
+
+#### Como testar
+
+```bash
+# 1. Testes unitários determinísticos (sem LLM) — cobrem os dois caminhos
+uv run pytest tests/test_evaluation_metrics.py -v
+#   test_evaluate_detector_dataset_path_still_works   → regressão do modo dataset
+#   test_detector_evaluates_submitted_samples         → modo ad-hoc do Detector
+#   test_refactor_evaluates_submitted_samples         → modo ad-hoc do Refatorador
+#   test_critic_evaluates_submitted_samples           → modo ad-hoc do Revisor
+
+# 2. Smoke test ao vivo (precisa de MISTRAL_API_KEY no .env)
+docker compose up -d postgres
+uv run uvicorn app.main:app --reload
+
+# em outro terminal — payload sem rótulo deve falhar com 422
+curl -i -X POST http://localhost:8000/api/v1/evaluate/detector \
+  -H "Content-Type: application/json" \
+  -d '{"samples":[{"source_code":"x=1"}]}'
+
+# payload completo deve retornar DetectorMetrics com per_file=[...]
+curl -s -X POST http://localhost:8000/api/v1/evaluate/detector \
+  -H "Content-Type: application/json" \
+  -d '{"samples":[{"name":"limpo","source_code":"def add(a,b): return a+b\n","expected_smell":"No Smell Detected"}]}' \
+  | python -m json.tool
+```
+
+O endpoint agregado `/evaluate/all` e o legado `/evaluate` continuam **somente** sobre o
+dataset fixo — ad-hoc só vale para os três endpoints por agente.
+
 ## Tests
 
 ```bash

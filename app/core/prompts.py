@@ -64,6 +64,57 @@ NÃO sugira padrões fora do escopo. NÃO altere regras de negócio.
     "expected_benefits": ["<benefício 1>", "<benefício 2>"]
   }
   ```
+
+## Exemplos
+
+Use os pares abaixo como referência canônica para a transformação. Note como:
+(a) a API pública é preservada por um wrapper; (b) o `refactored_code` é Python
+válido em uma única string JSON (sem aspas triplas); (c) os benefícios são
+arquiteturais, não cosméticos.
+
+### Exemplo A — Complex Switch → Strategy Pattern
+Entrada (smell `Complex/Long Switch Statements`):
+```python
+def calculate_shipping(country, weight_kg):
+    if country == "BR": return 15.0 if weight_kg < 1 else 35.0
+    elif country == "US": return 10.0 if weight_kg < 1 else 25.0
+    elif country == "DE": return 12.0 if weight_kg < 1 else 28.0
+    else: raise ValueError(country)
+```
+Saída:
+```json
+{
+  "applied_pattern": "Strategy Pattern",
+  "refactored_code": "from collections.abc import Callable\n\n_STRATEGIES: dict[str, Callable[[float], float]] = {\n    'BR': lambda w: 15.0 if w < 1 else 35.0,\n    'US': lambda w: 10.0 if w < 1 else 25.0,\n    'DE': lambda w: 12.0 if w < 1 else 28.0,\n}\n\ndef calculate_shipping(country, weight_kg):\n    strategy = _STRATEGIES.get(country)\n    if strategy is None:\n        raise ValueError(country)\n    return strategy(weight_kg)\n",
+  "architectural_explanation": "1) Cada ramo do switch vira uma estratégia (função/lambda) indexada por país. 2) A função pública vira um dispatcher que olha o dicionário e delega. 3) O default (ValueError) é preservado quando a chave não existe. 4) Adicionar um novo país é alterar o dicionário, sem editar a função.",
+  "expected_benefits": ["Aberto para extensão, fechado para modificação", "Despacho O(1) via dicionário, sem cadeia de elif", "API pública (assinatura de calculate_shipping) inalterada"]
+}
+```
+
+### Exemplo B — Duplicated Code → Template Method
+Entrada (smell `Duplicated Code`):
+```python
+class CSVReport:
+    def generate(self, rows):
+        if not rows: raise ValueError("empty rows")
+        body = ",".join(rows[0].keys()) + "\n"
+        return body.encode("utf-8")
+
+class JSONReport:
+    def generate(self, rows):
+        if not rows: raise ValueError("empty rows")
+        import json
+        return json.dumps(rows).encode("utf-8")
+```
+Saída:
+```json
+{
+  "applied_pattern": "Template Method",
+  "refactored_code": "from abc import ABC, abstractmethod\n\nclass ReportGenerator(ABC):\n    def generate(self, rows):\n        if not rows:\n            raise ValueError('empty rows')\n        return self._serialize(rows).encode('utf-8')\n\n    @abstractmethod\n    def _serialize(self, rows): ...\n\nclass CSVReport(ReportGenerator):\n    def _serialize(self, rows):\n        return ','.join(rows[0].keys()) + '\\n'\n\nclass JSONReport(ReportGenerator):\n    def _serialize(self, rows):\n        import json\n        return json.dumps(rows)\n",
+  "architectural_explanation": "1) O esqueleto comum (validar → serializar → encode) sobe para a base abstrata `ReportGenerator.generate`. 2) Cada subclasse implementa apenas o passo variável `_serialize`. 3) A API pública (`.generate(rows) -> bytes`) é preservada nas duas subclasses. 4) Novos formatos (XML, YAML) entram só adicionando uma subclasse.",
+  "expected_benefits": ["Elimina duplicação do esqueleto validação+encode", "Hook único de extensão (_serialize) por formato", "API pública preservada nas subclasses existentes"]
+}
+```
 """
 
 CRITIC_INSTRUCTIONS = """\
@@ -107,6 +158,58 @@ Após usar as tools, responda DEVE seguir EXCLUSIVAMENTE o schema `ReflectionRev
 {
   "is_approved": true,
   "critique": "<feedback detalhado — obrigatório se is_approved=false, caso contrário pode ser vazio>",
+  "final_validated_code": null
+}
+```
+
+## Exemplos
+
+Os exemplos abaixo mostram como amarrar a decisão aos 5 critérios. Na rejeição,
+sempre cite o número do critério violado e dê uma ação corrigível ao Recommender.
+
+### Exemplo I — Aprovação (Strategy aplicado corretamente)
+Contexto:
+- smell detectado: `Complex/Long Switch Statements`
+- applied_pattern: `Strategy Pattern`
+- código refatorado substitui cadeia de elif por dicionário de estratégias,
+  mantém `def calculate_shipping(country, weight_kg)` e o `ValueError` no caso default.
+
+Saída:
+```json
+{
+  "is_approved": true,
+  "critique": "Critérios 1–5 satisfeitos: sintaxe ok (syntax_checker), nenhum ramo lógico perdido (diff só substitui elif por lookup), pattern Strategy bate com o smell, assinatura pública preservada, único import novo é `collections.abc.Callable`.",
+  "final_validated_code": null
+}
+```
+
+### Exemplo II — Rejeição (pattern errado)
+Contexto:
+- smell detectado: `Complex/Long Switch Statements`
+- applied_pattern declarado: `Builder/Parameter Object`
+- código refatorado ainda contém a mesma cadeia de elif e só agrupa parâmetros num dataclass.
+
+Saída:
+```json
+{
+  "is_approved": false,
+  "critique": "Critério 3 falhou: pattern declarado é Builder/Parameter Object, mas o smell é Complex Switch e o mapeamento obrigatório é Strategy Pattern. Critério 2 também falhou: a cadeia de if/elif foi mantida intacta — nenhum despacho polimórfico foi introduzido. Ação: descartar o dataclass; mover cada ramo do switch para uma estratégia (função ou dict de callables) e fazer a função pública delegar via lookup.",
+  "final_validated_code": null
+}
+```
+
+### Exemplo III — Rejeição (assinatura pública quebrada)
+Contexto:
+- smell detectado: `Long Parameter List`
+- applied_pattern: `Builder/Parameter Object`
+- código refatorado expõe apenas `create_invoice(data: InvoiceData)` — a assinatura original
+  `create_invoice(customer_id, customer_name, ...)` foi removida.
+
+Saída:
+```json
+{
+  "is_approved": false,
+  "critique": "Critério 4 falhou: a função pública `create_invoice` mudou de assinatura (de 10 parâmetros posicionais para 1 dataclass), quebrando chamadores existentes. Critério 1–3 e 5 passam. Ação: manter `create_invoice(customer_id, customer_name, ...)` como wrapper fino que constrói o `InvoiceData` internamente e delega para `.build()`.",
   "final_validated_code": null
 }
 ```

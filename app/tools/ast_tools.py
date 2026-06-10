@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import ast
-from pathlib import Path
 from typing import Any
 
 from agno.tools import tool
@@ -11,26 +10,6 @@ from agno.tools import tool
 GOD_CLASS_MEMBER_THRESHOLD = 20
 LONG_PARAMETER_THRESHOLD = 5
 HIGH_COMPLEXITY_THRESHOLD = 10
-
-
-@tool(
-    name="read_source_code_tool",
-    description="Lê um arquivo de código preservando numeração de linhas (1-based).",
-)
-def read_source_code_tool(file_path: str) -> dict[str, Any]:
-    path = Path(file_path)
-    if not path.is_file():
-        return {"error": f"File not found: {file_path}"}
-
-    text = path.read_text(encoding="utf-8")
-    numbered_lines = "\n".join(f"{i + 1:>4}: {line}" for i, line in enumerate(text.splitlines()))
-
-    return {
-        "file": str(path),
-        "raw": text,
-        "numbered": numbered_lines,
-        "line_count": text.count("\n") + 1
-    }
 
 
 def _calculate_cyclomatic_complexity(source_code: str) -> list[dict[str, Any]]:

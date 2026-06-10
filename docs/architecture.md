@@ -53,7 +53,7 @@ return Agent(
     id="detector-agent",
     model=OpenAIChat(id=settings.llm_model_id),
     db=get_db(),
-    tools=[FileTools(), read_source_code_tool, ast_analyzer_tool],
+    tools=[ast_analyzer_tool],
     instructions=DETECTOR_INSTRUCTIONS,
     output_schema=SmellDetection,
 )
@@ -68,8 +68,8 @@ mensurável de forma independente.
 ### 1. `service.detect(source_code)`
 - Constrói o prompt com o código original.
 - Chama `detector_agent.run(prompt)`.
-- O Detector usa as tools `read_source_code_tool` e `ast_analyzer_tool` (radon + AST)
-  para identificar o smell.
+- O Detector usa a tool `ast_analyzer_tool` (radon + AST) para identificar o smell.
+  O `source_code` é inlinado direto no prompt — não há leitura de filesystem.
 - Retorna `SmellDetection` (Pydantic, validado por `output_schema`).
 
 ### 2. `service.propose(source_code, detection, prior_critique=None)`

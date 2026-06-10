@@ -30,7 +30,7 @@ do `refactor-os`.
 
 | Camada            | Caminho                            | Responsabilidade                                                   |
 |-------------------|------------------------------------|--------------------------------------------------------------------|
-| API               | `app/api/routes.py`                | Endpoints FastAPI (`/detect`, `/refactor`, `/evaluate`).           |
+| API               | `app/api/routes.py`                | Endpoints FastAPI (`/detect`, `/refactor`, `/evaluate/{detector,refactor,critic,all}`, `/knowledge/sync`). |
 | Service           | `app/services/refactor_service.py` | Orquestra a pipeline determinística com reflection loop.           |
 | Agente            | `app/agents/*_agent.py`            | Factories que constroem cada `Agent` da Agno.                      |
 | Tools             | `app/tools/*.py`                   | Funções determinísticas (AST, diff, syntax, registry de patterns). |

@@ -6,7 +6,6 @@ from fastapi import APIRouter
 from app.api.controllers.agents_controller import detect, refactor
 from app.api.controllers.dashboard_controller import render_dashboard
 from app.api.controllers.evaluation_controller import (
-    evaluate,
     evaluate_all,
     evaluate_critic,
     evaluate_detector,
@@ -16,7 +15,6 @@ from app.api.controllers.knowledge_controller import sync_knowledge
 from app.core.schemas import (
     CriticMetrics,
     DetectorMetrics,
-    EvaluationMetrics,
     FullEvaluationReport,
     RefactorQualityMetrics,
     RefactorResult,
@@ -28,7 +26,6 @@ routerAPI = APIRouter(prefix="/api/v1", tags=["refactor"])
 
 routerAPI.add_api_route("/detect", detect, methods=["POST"], response_model=SmellDetection, tags=["agents"])
 routerAPI.add_api_route("/refactor", refactor, methods=["POST"], response_model=RefactorResult, tags=["agents"])
-routerAPI.add_api_route("/evaluate", evaluate, methods=["POST"], response_model=EvaluationMetrics, tags=["evaluation"])
 routerAPI.add_api_route(
     "/evaluate/detector", evaluate_detector, methods=["POST"], response_model=DetectorMetrics, tags=["evaluation"]
 )

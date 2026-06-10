@@ -95,16 +95,6 @@ class CriticTruthEntry(BaseModel):
     )
 
 
-class EvaluationMetrics(BaseModel):
-    """Combined legacy report kept for backward compatibility with /api/v1/evaluate."""
-
-    total: int
-    detector_precision: float
-    detector_recall: float
-    refactor_accuracy: float
-    per_file: list[dict]
-
-
 class ConfusionMatrix(BaseModel):
     """Binary confusion matrix shared by Detector and Critic evaluations."""
 

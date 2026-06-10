@@ -11,7 +11,6 @@ from app.core.schemas import (
     CriticMetrics,
     DetectorEvalRequest,
     DetectorMetrics,
-    EvaluationMetrics,
     FullEvaluationReport,
     RefactorEvalRequest,
     RefactorQualityMetrics,
@@ -19,13 +18,6 @@ from app.core.schemas import (
 from app.services.evaluation_service import EvaluationService
 
 EvalDep = Annotated[EvaluationService, Depends(get_evaluation_service)]
-
-
-async def evaluate(service: EvalDep) -> EvaluationMetrics:
-    try:
-        return await service.evaluate()
-    except FileNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 async def evaluate_detector(

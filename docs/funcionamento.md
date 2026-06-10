@@ -372,11 +372,14 @@ entrada:
 
 ### 5.4 Relatório combinado
 
-- `evaluate_all` ([evaluation_service.py:309](../app/services/evaluation_service.py#L309))
-  agrega os três em `FullEvaluationReport`.
-- `evaluate` ([evaluation_service.py:316](../app/services/evaluation_service.py#L316))
-  é o relatório combinado **legado** (`EvaluationMetrics`) mantido para o
-  dashboard e para o endpoint `POST /api/v1/evaluate`.
+- `evaluate_all` ([evaluation_service.py](../app/services/evaluation_service.py))
+  agrega os três em `FullEvaluationReport` e é exposto via
+  `POST /api/v1/evaluate/all`. Sempre roda sobre o dataset fixo.
+- Os três endpoints por agente (`/evaluate/{detector,refactor,critic}`) também
+  aceitam um body com `samples` para avaliar **código submetido**
+  pelo usuário no lugar do dataset — útil pra rodar a métrica sobre amostras
+  ad-hoc sem precisar adicionar arquivos ao `dataset/`. Veja o `Readme.md` para
+  o schema das amostras.
 - `scripts/run_evaluation.py --all --md … --json …` produz
   `dataset/reports/evaluation.{md,json}` (o `.md` é auto-contido por seção).
 

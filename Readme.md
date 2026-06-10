@@ -32,7 +32,7 @@ Comunicação **Spec-Driven** via Pydantic em `app/core/schemas.py`.
 
 ```
 app/
-├── api/                           # FastAPI: /detect /refactor /evaluate(/detector|refactor|critic|all) /knowledge/sync
+├── api/                           # FastAPI: /detect /refactor /evaluate/(detector|refactor|critic|all) /knowledge/sync
 ├── agents/                        # Detector, Recommender, Critic
 ├── core/                          # config, prompts, schemas (Pydantic)
 ├── db/session.py                  # PostgresDb compartilhado (Agno)
@@ -96,7 +96,6 @@ docker compose up --build
 
 - `POST /api/v1/detect` — apenas o Detector.
 - `POST /api/v1/refactor` — pipeline completo Detector → Recommender → Critic com reflection loop.
-- `POST /api/v1/evaluate` — relatório combinado legado (precision/recall/accuracy).
 - `POST /api/v1/evaluate/detector` — **Agente Rastreador**: Falsos Positivos / Falsos Negativos.
 - `POST /api/v1/evaluate/refactor` — **Agente Refatorador**: precisão/qualidade da solução.
 - `POST /api/v1/evaluate/critic` — **Agente Revisor**: false accept / false reject.
@@ -231,8 +230,8 @@ curl -s -X POST http://localhost:8000/api/v1/evaluate/detector \
   | python -m json.tool
 ```
 
-O endpoint agregado `/evaluate/all` e o legado `/evaluate` continuam **somente** sobre o
-dataset fixo — ad-hoc só vale para os três endpoints por agente.
+O endpoint agregado `/evaluate/all` continua **somente** sobre o dataset fixo — ad-hoc só
+vale para os três endpoints por agente.
 
 ## Tests
 

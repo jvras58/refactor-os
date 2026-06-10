@@ -16,7 +16,7 @@ Estes padrões já estão presentes na arquitetura desde a concepção do projet
 | 5 | **Tool Use (Function Calling)** | `ast_analyzer_tool`, `design_pattern_reference_tool`, `diff_generator_tool`, `syntax_checker_tool` em `app/tools/` |
 | 7 | **Multi-Agent Collaboration** | Três agentes especializados (`DetectorAgent`, `RecommenderAgent`, `CriticAgent`) com papéis exclusivos |
 | 14 | **Knowledge Retrieval (RAG)** | PgVector + 5 arquivos `.md` de patterns via `KnowledgeTools` em `app/knowledge/` |
-| 19 | **Evaluation and Monitoring** | Endpoint `/evaluate` com precision/recall/accuracy contra `dataset/ground_truth.json` |
+| 19 | **Evaluation and Monitoring** | Endpoints `/evaluate/{detector,refactor,critic,all}` — métricas independentes por agente contra `dataset/ground_truth.json` e `dataset/critic_truth.json` (ou amostras enviadas ad-hoc) |
 
 ---
 
@@ -42,7 +42,7 @@ vazio causaria comportamento indefinido nos agentes. Pior: `CriticAgent` incluí
 
 **Problema resolvido:** O Critic avaliava com instruções vagas ("avalie se o pattern foi aplicado
 corretamente"). Com LLMs probabilísticos, critérios vagos geram decisões inconsistentes entre
-iterações, tornando o `refactor_accuracy` do `/evaluate` não-reproduzível.
+iterações, tornando o `accuracy` do `/evaluate/refactor` não-reproduzível.
 
 **Implementação:** `CRITIC_INSTRUCTIONS` em `app/core/prompts.py` substituiu a seção de avaliação
 por 5 critérios numerados e binários (SMART):
@@ -90,11 +90,11 @@ O campo `error: str | None` foi adicionado a `RefactorResult` para surfaçar a m
 | **8 · Memory Management** | Pipeline stateless por arquivo. O PgVector já provê o "longo prazo" via RAG. |
 | **9 · Learning and Adaptation** | Fora do escopo acadêmico (sem RL/fine-tuning). |
 | **10 · MCP** | Overhead de infraestrutura sem ganho — todas as tools são internas ao projeto. |
-| **13 · HITL** | O `/evaluate` contra ground truth substitui supervisão humana para fins acadêmicos. |
+| **13 · HITL** | Os endpoints `/evaluate/*` contra ground truth substituem supervisão humana para fins acadêmicos. |
 | **16 · Resource-Aware Optimization** | Modelo único (Llama 3.3 70B). Roteamento Flash/Pro não se aplica. |
 | **17 · Reasoning Techniques (CoT/ToT/ReAct)** | Llama 3.3 já aplica CoT implícito; ReAct é contraditório com pipeline determinístico. |
 | **20 · Prioritization** | Uma tarefa por vez, sem fila concorrente de objetivos. |
 
 > **Nota sobre Team (Agno):** O `agno.Team` foi avaliado e descartado — veja `docs/architecture.md`
 > para a justificativa detalhada. Em resumo: o Team usa um LLM como orquestrador, o que quebra
-> o determinismo do pipeline e impede medir cada estágio individualmente para o `/evaluate`.
+> o determinismo do pipeline e impede medir cada estágio individualmente para os endpoints `/evaluate/*`.

@@ -67,11 +67,10 @@ Base: `http://127.0.0.1:8000/api/v1`
 | GET    | `/health`          | Liveness check.                                             |
 | POST   | `/detect`          | Executa **somente** o Detector — retorna `SmellDetection`.  |
 | POST   | `/refactor`        | Pipeline completa (Detector→Recommender→Critic + reflection). |
-| POST   | `/evaluate`        | Roda o `dataset/` e retorna métricas (precision/recall/accuracy). |
-| POST   | `/evaluate/detector` | Avalia apenas o Detector (FP/FN).                              |
-| POST   | `/evaluate/refactor` | Avalia apenas o Recommender (qualidade/refatoracao).           |
-| POST   | `/evaluate/critic`  | Avalia apenas o Critic (false accept/false reject).            |
-| POST   | `/evaluate/all`     | Roda as 3 avaliacoes de uma vez.                                |
+| POST   | `/evaluate/detector` | Avalia o Detector (FP/FN). Body vazio → dataset; body com `samples` → código submetido. |
+| POST   | `/evaluate/refactor` | Avalia o Recommender (qualidade/refatoração). Body vazio → dataset; body com `samples` → código submetido. |
+| POST   | `/evaluate/critic`  | Avalia o Critic (false accept/false reject). Body vazio → dataset; body com `samples` → código submetido. |
+| POST   | `/evaluate/all`     | Roda as 3 avaliações de uma vez (sempre sobre o dataset). |
 | POST   | `/knowledge/sync`  | Indexa os 5 `.md` de patterns no PgVector.                  |
 
 ## 6. Fluxo recomendado de uso
@@ -138,21 +137,31 @@ Resposta (`RefactorResult`):
 
 ### Passo 4 — Avaliação empírica
 
+Cada agente é avaliado de forma independente. Sem body → roda sobre o dataset fixo;
+com `samples` no body → roda sobre o código submetido (rótulo esperado obrigatório).
+
 ```bash
-curl -X POST http://127.0.0.1:8000/api/v1/evaluate
+# Relatório completo dos três agentes sobre o dataset
+curl -X POST http://127.0.0.1:8000/api/v1/evaluate/all
+
+# Avaliação do Detector sobre código submetido
+curl -X POST http://127.0.0.1:8000/api/v1/evaluate/detector \
+  -H "Content-Type: application/json" \
+  -d '{"samples":[{"name":"meu_teste","source_code":"def add(a,b): return a+b\n","expected_smell":"No Smell Detected"}]}'
 ```
 
-Resposta:
+Resposta agregada (`/evaluate/all`):
 
 ```json
 {
-  "total": 5,
-  "detector_precision": 1.0,
-  "detector_recall": 1.0,
-  "refactor_accuracy": 0.8,
-  "per_file": [ ... ]
+  "detector": { "total": 20, "precision": 1.0, "recall": 1.0, "per_file": [ ... ] },
+  "refactor": { "total": 10, "accuracy": 0.8, "pattern_accuracy": 0.9, "per_file": [ ... ] },
+  "critic":   { "total": 20, "accuracy": 0.9, "false_accept_rate": 0.1, "per_file": [ ... ] }
 }
 ```
+
+Veja `Readme.md` → *Avaliação com código submetido (ad-hoc)* para o schema completo
+das amostras por agente.
 
 ## 7. Uso programático (sem HTTP)
 
@@ -178,7 +187,7 @@ print(result.approved, result.proposal.applied_pattern)
      "line_end": 80
    }
    ```
-3. Rode `POST /api/v1/evaluate` novamente.
+3. Rode `POST /api/v1/evaluate/all` novamente.
 
 Veja `dataset/README.md` para detalhes da metodologia.
 

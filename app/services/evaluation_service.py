@@ -8,8 +8,6 @@ Three focused evaluations, one per agent, exactly as required by the course rubr
   cada problema, via checagens objetivas (pattern correto, sintaxe válida, API preservada).
 * ``evaluate_critic``    — Agente Revisor: confiabilidade do julgamento, alimentando o Critic
   com soluções sabidamente corretas e incorretas (**false accept** e **false reject**).
-
-``evaluate`` mantém o relatório combinado legado consumido por ``POST /api/v1/evaluate``.
 """
 from __future__ import annotations
 
@@ -27,7 +25,6 @@ from app.core.schemas import (
     DesignPatternType,
     DetectorEvalSample,
     DetectorMetrics,
-    EvaluationMetrics,
     FullEvaluationReport,
     GroundTruthEntry,
     RefactorEvalSample,
@@ -406,16 +403,4 @@ class EvaluationService:
             detector=await self.evaluate_detector(),
             refactor=await self.evaluate_refactor(),
             critic=await self.evaluate_critic(),
-        )
-
-    async def evaluate(self) -> EvaluationMetrics:
-        """Legacy combined report kept for backward compatibility with the dashboard/API."""
-        detector = await self.evaluate_detector()
-        refactor = await self.evaluate_refactor()
-        return EvaluationMetrics(
-            total=detector.total,
-            detector_precision=detector.precision,
-            detector_recall=detector.recall,
-            refactor_accuracy=refactor.accuracy,
-            per_file=detector.per_file,
         )

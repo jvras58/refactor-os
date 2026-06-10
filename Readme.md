@@ -248,6 +248,81 @@ curl -X POST http://localhost:8000/api/v1/evaluate/all \
   }'
 ```
 
+#### Exemplo completo — `/evaluate/all` 100% por body
+
+Cada seção precisa de pelo menos uma amostra com seu rótulo esperado. O `payload.json`
+abaixo cobre os três agentes simultaneamente sem tocar no `dataset/`:
+
+```bash
+cat > /tmp/payload.json <<'JSON'
+{
+  "detector": {
+    "samples": [
+      {
+        "name": "god_class_caso_1",
+        "source_code": "class Big:\n    def m1(self): ...\n    def m2(self): ...\n    def m3(self): ...\n    def m4(self): ...\n    def m5(self): ...\n    def m6(self): ...\n    def m7(self): ...\n    def m8(self): ...\n    def m9(self): ...\n    def m10(self): ...\n    def m11(self): ...\n    def m12(self): ...\n    def m13(self): ...\n    def m14(self): ...\n    def m15(self): ...\n    def m16(self): ...\n    def m17(self): ...\n    def m18(self): ...\n    def m19(self): ...\n    def m20(self): ...\n    def m21(self): ...\n",
+        "expected_smell": "God Class"
+      },
+      {
+        "name": "codigo_limpo_1",
+        "source_code": "def add(a, b):\n    return a + b\n",
+        "expected_smell": "No Smell Detected"
+      }
+    ]
+  },
+  "refactor": {
+    "samples": [
+      {
+        "name": "switch_grande",
+        "source_code": "def calc(op, a, b):\n    if op == \"sum\":\n        return a + b\n    elif op == \"sub\":\n        return a - b\n    elif op == \"mul\":\n        return a * b\n    elif op == \"div\":\n        return a / b\n    elif op == \"mod\":\n        return a % b\n    else:\n        raise ValueError(op)\n",
+        "expected_pattern": "Strategy Pattern"
+      },
+      {
+        "name": "muitos_parametros",
+        "source_code": "def criar_usuario(nome, email, senha, idade, cidade, estado, pais):\n    return {\"nome\": nome, \"email\": email, \"senha\": senha, \"idade\": idade, \"cidade\": cidade, \"estado\": estado, \"pais\": pais}\n",
+        "expected_pattern": "Builder/Parameter Object"
+      }
+    ]
+  },
+  "critic": {
+    "samples": [
+      {
+        "name": "solucao_correta_strategy",
+        "problem_code": "def calc(op, a, b):\n    if op == \"sum\": return a+b\n    elif op == \"sub\": return a-b\n",
+        "solution_code": "class Operacao:\n    def executar(self, a, b): ...\nclass Soma(Operacao):\n    def executar(self, a, b): return a + b\nclass Sub(Operacao):\n    def executar(self, a, b): return a - b\ndef calc(op: Operacao, a, b):\n    return op.executar(a, b)\n",
+        "applied_pattern": "Strategy Pattern",
+        "expected_approved": true
+      },
+      {
+        "name": "solucao_incorreta_pattern_errado",
+        "problem_code": "def calc(op, a, b):\n    if op == \"sum\": return a+b\n    elif op == \"sub\": return a-b\n",
+        "solution_code": "def calc(op, a, b, c=None, d=None):\n    if op == \"sum\": return a+b\n    elif op == \"sub\": return a-b\n",
+        "applied_pattern": "Builder/Parameter Object",
+        "expected_approved": false,
+        "defect_kind": "wrong_pattern"
+      }
+    ]
+  }
+}
+JSON
+
+curl -X POST http://localhost:8000/api/v1/evaluate/all \
+  -H "Content-Type: application/json" \
+  -d @/tmp/payload.json | python -m json.tool
+```
+
+A resposta tem o mesmo formato do modo dataset — `FullEvaluationReport` com as três
+seções (`detector`, `refactor`, `critic`), cada uma com matriz de confusão, métricas e
+`per_file` listando cada amostra enviada:
+
+```json
+{
+  "detector": { "total": 2, "precision": 1.0, "recall": 1.0, "per_file": [ {"file": "god_class_caso_1", ... } ] },
+  "refactor": { "total": 2, "accuracy": 0.5, "pattern_accuracy": 1.0, "per_file": [ {"file": "switch_grande", ... } ] },
+  "critic":   { "total": 2, "accuracy": 1.0, "false_accept_rate": 0.0, "per_file": [ {"solution_file": "solucao_correta_strategy", ... } ] }
+}
+```
+
 ## Tests
 
 ```bash

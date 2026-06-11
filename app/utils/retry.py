@@ -1,9 +1,11 @@
-"""Retry helpers for transient LLM provider errors (rate limits, capacity)."""
+"""Retry helpers for transient LLM provider errors (rate limits, capacity) and
+schema-validation failures of the parser_model."""
 from __future__ import annotations
 
 import asyncio
 import logging
 from collections.abc import Awaitable, Callable
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -53,3 +55,41 @@ async def arun_with_backoff[T](
                 delay,
             )
             await asyncio.sleep(delay)
+
+
+async def arun_typed[T](
+    agent_arun: Callable[..., Awaitable[Any]],
+    prompt: str,
+    *,
+    schema: type[T],
+    label: str,
+    attempts: int = 2,
+) -> T:
+    """Call ``agent_arun(prompt)`` and return ``response.content`` cast to ``schema``.
+
+    Handles both layers of transient failures in the Mistral pipeline:
+      * rate-limit / capacity errors (via :func:`arun_with_backoff`);
+      * parser_model occasionally returning a raw string instead of the expected
+        Pydantic instance — retried up to ``attempts`` times before raising.
+
+    Raises ``ValueError`` with the last observed content if no attempt validates.
+    """
+    last_content: Any = None
+    for attempt in range(1, attempts + 1):
+        response = await arun_with_backoff(agent_arun, prompt, label=label)
+        content = response.content
+        if isinstance(content, schema):
+            return content
+        last_content = content
+        logger.warning(
+            "%s returned non-%s content (attempt %d/%d): %r",
+            label,
+            schema.__name__,
+            attempt,
+            attempts,
+            content,
+        )
+    raise ValueError(
+        f"{label} retornou tipo inesperado após {attempts} tentativas: "
+        f"{type(last_content).__name__} — {last_content!r}"
+    )

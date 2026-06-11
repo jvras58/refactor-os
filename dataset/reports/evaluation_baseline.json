@@ -1,0 +1,510 @@
+{
+  "detector": {
+    "total": 20,
+    "confusion": {
+      "true_positive": 10,
+      "false_positive": 0,
+      "true_negative": 10,
+      "false_negative": 0
+    },
+    "precision": 1.0,
+    "recall": 1.0,
+    "accuracy": 1.0,
+    "f1": 1.0,
+    "specificity": 1.0,
+    "false_positive_rate": 0.0,
+    "false_negative_rate": 0.0,
+    "type_accuracy": 1.0,
+    "per_file": [
+      {
+        "file": "examples/01_complex_switch.py",
+        "expected_smell": "Complex/Long Switch Statements",
+        "detected_smell": "Complex/Long Switch Statements",
+        "expected_has_smell": true,
+        "predicted_has_smell": true,
+        "type_correct": true,
+        "classification": "TP"
+      },
+      {
+        "file": "examples/02_long_parameter_list.py",
+        "expected_smell": "Long Parameter List",
+        "detected_smell": "Long Parameter List",
+        "expected_has_smell": true,
+        "predicted_has_smell": true,
+        "type_correct": true,
+        "classification": "TP"
+      },
+      {
+        "file": "examples/03_god_class.py",
+        "expected_smell": "God Class",
+        "detected_smell": "God Class",
+        "expected_has_smell": true,
+        "predicted_has_smell": true,
+        "type_correct": true,
+        "classification": "TP"
+      },
+      {
+        "file": "examples/04_tight_coupling.py",
+        "expected_smell": "Tight Coupling",
+        "detected_smell": "Tight Coupling",
+        "expected_has_smell": true,
+        "predicted_has_smell": true,
+        "type_correct": true,
+        "classification": "TP"
+      },
+      {
+        "file": "examples/05_duplicated_code.py",
+        "expected_smell": "Duplicated Code",
+        "detected_smell": "Duplicated Code",
+        "expected_has_smell": true,
+        "predicted_has_smell": true,
+        "type_correct": true,
+        "classification": "TP"
+      },
+      {
+        "file": "examples/06_complex_switch.py",
+        "expected_smell": "Complex/Long Switch Statements",
+        "detected_smell": "Complex/Long Switch Statements",
+        "expected_has_smell": true,
+        "predicted_has_smell": true,
+        "type_correct": true,
+        "classification": "TP"
+      },
+      {
+        "file": "examples/07_long_parameter_list.py",
+        "expected_smell": "Long Parameter List",
+        "detected_smell": "Long Parameter List",
+        "expected_has_smell": true,
+        "predicted_has_smell": true,
+        "type_correct": true,
+        "classification": "TP"
+      },
+      {
+        "file": "examples/08_god_class.py",
+        "expected_smell": "God Class",
+        "detected_smell": "God Class",
+        "expected_has_smell": true,
+        "predicted_has_smell": true,
+        "type_correct": true,
+        "classification": "TP"
+      },
+      {
+        "file": "examples/09_tight_coupling.py",
+        "expected_smell": "Tight Coupling",
+        "detected_smell": "Tight Coupling",
+        "expected_has_smell": true,
+        "predicted_has_smell": true,
+        "type_correct": true,
+        "classification": "TP"
+      },
+      {
+        "file": "examples/10_duplicated_code.py",
+        "expected_smell": "Duplicated Code",
+        "detected_smell": "Duplicated Code",
+        "expected_has_smell": true,
+        "predicted_has_smell": true,
+        "type_correct": true,
+        "classification": "TP"
+      },
+      {
+        "file": "clean/clean_01_dict_dispatch.py",
+        "expected_smell": "No Smell Detected",
+        "detected_smell": "No Smell Detected",
+        "expected_has_smell": false,
+        "predicted_has_smell": false,
+        "type_correct": null,
+        "classification": "TN"
+      },
+      {
+        "file": "clean/clean_02_parameter_object.py",
+        "expected_smell": "No Smell Detected",
+        "detected_smell": "No Smell Detected",
+        "expected_has_smell": false,
+        "predicted_has_smell": false,
+        "type_correct": null,
+        "classification": "TN"
+      },
+      {
+        "file": "clean/clean_03_focused_class.py",
+        "expected_smell": "No Smell Detected",
+        "detected_smell": "No Smell Detected",
+        "expected_has_smell": false,
+        "predicted_has_smell": false,
+        "type_correct": null,
+        "classification": "TN"
+      },
+      {
+        "file": "clean/clean_04_injected_dependency.py",
+        "expected_smell": "No Smell Detected",
+        "detected_smell": "No Smell Detected",
+        "expected_has_smell": false,
+        "predicted_has_smell": false,
+        "type_correct": null,
+        "classification": "TN"
+      },
+      {
+        "file": "clean/clean_05_template_method.py",
+        "expected_smell": "No Smell Detected",
+        "detected_smell": "No Smell Detected",
+        "expected_has_smell": false,
+        "predicted_has_smell": false,
+        "type_correct": null,
+        "classification": "TN"
+      },
+      {
+        "file": "clean/clean_06_pure_functions.py",
+        "expected_smell": "No Smell Detected",
+        "detected_smell": "No Smell Detected",
+        "expected_has_smell": false,
+        "predicted_has_smell": false,
+        "type_correct": null,
+        "classification": "TN"
+      },
+      {
+        "file": "clean/clean_07_short_switch.py",
+        "expected_smell": "No Smell Detected",
+        "detected_smell": "No Smell Detected",
+        "expected_has_smell": false,
+        "predicted_has_smell": false,
+        "type_correct": null,
+        "classification": "TN"
+      },
+      {
+        "file": "clean/clean_08_validator.py",
+        "expected_smell": "No Smell Detected",
+        "detected_smell": "No Smell Detected",
+        "expected_has_smell": false,
+        "predicted_has_smell": false,
+        "type_correct": null,
+        "classification": "TN"
+      },
+      {
+        "file": "clean/clean_09_value_object.py",
+        "expected_smell": "No Smell Detected",
+        "detected_smell": "No Smell Detected",
+        "expected_has_smell": false,
+        "predicted_has_smell": false,
+        "type_correct": null,
+        "classification": "TN"
+      },
+      {
+        "file": "clean/clean_10_repository_protocol.py",
+        "expected_smell": "No Smell Detected",
+        "detected_smell": "No Smell Detected",
+        "expected_has_smell": false,
+        "predicted_has_smell": false,
+        "type_correct": null,
+        "classification": "TN"
+      }
+    ]
+  },
+  "refactor": {
+    "total": 10,
+    "accuracy": 0.6,
+    "pattern_accuracy": 1.0,
+    "syntax_valid_rate": 1.0,
+    "logic_preserved_rate": 0.6,
+    "pipeline_approved_rate": 0.7,
+    "avg_iterations": 1.3,
+    "per_file": [
+      {
+        "file": "examples/01_complex_switch.py",
+        "expected_pattern": "Strategy Pattern",
+        "applied_pattern": "Strategy Pattern",
+        "pattern_correct": true,
+        "syntax_valid": true,
+        "logic_preserved": true,
+        "missing_public_api": [],
+        "is_correct": true,
+        "approved": true,
+        "iterations": 1
+      },
+      {
+        "file": "examples/02_long_parameter_list.py",
+        "expected_pattern": "Builder/Parameter Object",
+        "applied_pattern": "Builder/Parameter Object",
+        "pattern_correct": true,
+        "syntax_valid": true,
+        "logic_preserved": true,
+        "missing_public_api": [],
+        "is_correct": true,
+        "approved": true,
+        "iterations": 1
+      },
+      {
+        "file": "examples/03_god_class.py",
+        "expected_pattern": "Facade/SRP",
+        "applied_pattern": "Facade/SRP",
+        "pattern_correct": true,
+        "syntax_valid": true,
+        "logic_preserved": false,
+        "missing_public_api": [
+          "OrderManager.add_inventory",
+          "OrderManager.check_stock",
+          "OrderManager.create_user",
+          "OrderManager.delete_user",
+          "OrderManager.export_audit",
+          "OrderManager.list_users",
+          "OrderManager.log",
+          "OrderManager.remove_inventory",
+          "OrderManager.report",
+          "OrderManager.reserve_stock",
+          "OrderManager.send_email",
+          "OrderManager.send_sms",
+          "OrderManager.total_revenue",
+          "OrderManager.update_user"
+        ],
+        "is_correct": false,
+        "approved": false,
+        "iterations": 1
+      },
+      {
+        "file": "examples/04_tight_coupling.py",
+        "expected_pattern": "Dependency Injection",
+        "applied_pattern": "Dependency Injection",
+        "pattern_correct": true,
+        "syntax_valid": true,
+        "logic_preserved": true,
+        "missing_public_api": [],
+        "is_correct": true,
+        "approved": true,
+        "iterations": 2
+      },
+      {
+        "file": "examples/05_duplicated_code.py",
+        "expected_pattern": "Template Method",
+        "applied_pattern": "Template Method",
+        "pattern_correct": true,
+        "syntax_valid": true,
+        "logic_preserved": false,
+        "missing_public_api": [
+          "CSVReportGenerator.generate",
+          "HTMLReportGenerator.generate",
+          "JSONReportGenerator.generate"
+        ],
+        "is_correct": false,
+        "approved": true,
+        "iterations": 1
+      },
+      {
+        "file": "examples/06_complex_switch.py",
+        "expected_pattern": "Strategy Pattern",
+        "applied_pattern": "Strategy Pattern",
+        "pattern_correct": true,
+        "syntax_valid": true,
+        "logic_preserved": false,
+        "missing_public_api": [
+          "process_event"
+        ],
+        "is_correct": false,
+        "approved": true,
+        "iterations": 1
+      },
+      {
+        "file": "examples/07_long_parameter_list.py",
+        "expected_pattern": "Builder/Parameter Object",
+        "applied_pattern": "Builder/Parameter Object",
+        "pattern_correct": true,
+        "syntax_valid": true,
+        "logic_preserved": true,
+        "missing_public_api": [],
+        "is_correct": true,
+        "approved": true,
+        "iterations": 1
+      },
+      {
+        "file": "examples/08_god_class.py",
+        "expected_pattern": "Facade/SRP",
+        "applied_pattern": "Facade/SRP",
+        "pattern_correct": true,
+        "syntax_valid": true,
+        "logic_preserved": true,
+        "missing_public_api": [],
+        "is_correct": true,
+        "approved": false,
+        "iterations": 1
+      },
+      {
+        "file": "examples/09_tight_coupling.py",
+        "expected_pattern": "Dependency Injection",
+        "applied_pattern": "Dependency Injection",
+        "pattern_correct": true,
+        "syntax_valid": true,
+        "logic_preserved": true,
+        "missing_public_api": [],
+        "is_correct": true,
+        "approved": false,
+        "iterations": 3
+      },
+      {
+        "file": "examples/10_duplicated_code.py",
+        "expected_pattern": "Template Method",
+        "applied_pattern": "Template Method",
+        "pattern_correct": true,
+        "syntax_valid": true,
+        "logic_preserved": false,
+        "missing_public_api": [
+          "BankImporter.import_file",
+          "BrokerImporter.import_file"
+        ],
+        "is_correct": false,
+        "approved": true,
+        "iterations": 1
+      }
+    ]
+  },
+  "critic": {
+    "total": 19,
+    "confusion": {
+      "true_positive": 8,
+      "false_positive": 0,
+      "true_negative": 10,
+      "false_negative": 1
+    },
+    "accuracy": 0.9473684210526315,
+    "precision": 1.0,
+    "recall": 0.8888888888888888,
+    "f1": 0.9411764705882353,
+    "false_accept_rate": 0.0,
+    "false_reject_rate": 0.1111111111111111,
+    "per_file": [
+      {
+        "solution_file": "solutions/correct/sol_01_complex_switch.py",
+        "expected_approved": true,
+        "predicted_approved": true,
+        "defect_kind": null,
+        "classification": "TP"
+      },
+      {
+        "solution_file": "solutions/correct/sol_02_long_parameter_list.py",
+        "expected_approved": true,
+        "predicted_approved": true,
+        "defect_kind": null,
+        "classification": "TP"
+      },
+      {
+        "solution_file": "solutions/correct/sol_03_god_class.py",
+        "error": true
+      },
+      {
+        "solution_file": "solutions/correct/sol_04_tight_coupling.py",
+        "expected_approved": true,
+        "predicted_approved": true,
+        "defect_kind": null,
+        "classification": "TP"
+      },
+      {
+        "solution_file": "solutions/correct/sol_05_duplicated_code.py",
+        "expected_approved": true,
+        "predicted_approved": true,
+        "defect_kind": null,
+        "classification": "TP"
+      },
+      {
+        "solution_file": "solutions/correct/sol_06_complex_switch.py",
+        "expected_approved": true,
+        "predicted_approved": true,
+        "defect_kind": null,
+        "classification": "TP"
+      },
+      {
+        "solution_file": "solutions/correct/sol_07_long_parameter_list.py",
+        "expected_approved": true,
+        "predicted_approved": true,
+        "defect_kind": null,
+        "classification": "TP"
+      },
+      {
+        "solution_file": "solutions/correct/sol_08_god_class.py",
+        "expected_approved": true,
+        "predicted_approved": false,
+        "defect_kind": null,
+        "classification": "FN (false reject)"
+      },
+      {
+        "solution_file": "solutions/correct/sol_09_tight_coupling.py",
+        "expected_approved": true,
+        "predicted_approved": true,
+        "defect_kind": null,
+        "classification": "TP"
+      },
+      {
+        "solution_file": "solutions/correct/sol_10_duplicated_code.py",
+        "expected_approved": true,
+        "predicted_approved": true,
+        "defect_kind": null,
+        "classification": "TP"
+      },
+      {
+        "solution_file": "solutions/incorrect/bad_01_complex_switch.py",
+        "expected_approved": false,
+        "predicted_approved": false,
+        "defect_kind": "logic",
+        "classification": "TN"
+      },
+      {
+        "solution_file": "solutions/incorrect/bad_02_long_parameter_list.py",
+        "expected_approved": false,
+        "predicted_approved": false,
+        "defect_kind": "syntax",
+        "classification": "TN"
+      },
+      {
+        "solution_file": "solutions/incorrect/bad_03_god_class.py",
+        "expected_approved": false,
+        "predicted_approved": false,
+        "defect_kind": "signature",
+        "classification": "TN"
+      },
+      {
+        "solution_file": "solutions/incorrect/bad_04_tight_coupling.py",
+        "expected_approved": false,
+        "predicted_approved": false,
+        "defect_kind": "pattern_not_applied",
+        "classification": "TN"
+      },
+      {
+        "solution_file": "solutions/incorrect/bad_05_duplicated_code.py",
+        "expected_approved": false,
+        "predicted_approved": false,
+        "defect_kind": "logic",
+        "classification": "TN"
+      },
+      {
+        "solution_file": "solutions/incorrect/bad_06_complex_switch.py",
+        "expected_approved": false,
+        "predicted_approved": false,
+        "defect_kind": "syntax",
+        "classification": "TN"
+      },
+      {
+        "solution_file": "solutions/incorrect/bad_07_long_parameter_list.py",
+        "expected_approved": false,
+        "predicted_approved": false,
+        "defect_kind": "forbidden_import",
+        "classification": "TN"
+      },
+      {
+        "solution_file": "solutions/incorrect/bad_08_god_class.py",
+        "expected_approved": false,
+        "predicted_approved": false,
+        "defect_kind": "logic",
+        "classification": "TN"
+      },
+      {
+        "solution_file": "solutions/incorrect/bad_09_tight_coupling.py",
+        "expected_approved": false,
+        "predicted_approved": false,
+        "defect_kind": "logic",
+        "classification": "TN"
+      },
+      {
+        "solution_file": "solutions/incorrect/bad_10_duplicated_code.py",
+        "expected_approved": false,
+        "predicted_approved": false,
+        "defect_kind": "pattern_not_applied",
+        "classification": "TN"
+      }
+    ]
+  }
+}

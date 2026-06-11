@@ -35,9 +35,6 @@ Os três compartilham o mesmo `MistralChat` (`LLM_MODEL_ID`, default
 Prompt em [prompts.py:3](../app/core/prompts.py#L3) (`DETECTOR_INSTRUCTIONS`)
 obriga a chamar `ast_analyzer_tool` **antes** de concluir.
 
-- **`read_source_code_tool`** ([ast_tools.py:16](../app/tools/ast_tools.py#L16))
-  lê o arquivo preservando numeração 1-based. Útil quando o código é grande
-  demais para ser inlinado no prompt.
 - **`ast_analyzer_tool`** ([ast_tools.py:124](../app/tools/ast_tools.py#L124))
   combina `ast` + `radon.complexity.cc_visit` e devolve métricas
   determinísticas:

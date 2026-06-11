@@ -20,7 +20,7 @@ um schema Pydantic validado (Spec-Driven).
 
 | Agente | Factory | Tools recebidas | Output (Pydantic) |
 |---|---|---|---|
-| **Detector** (Rastreador) | [detector_agent.py:14](../app/agents/detector_agent.py#L14) | `read_source_code_tool`, `ast_analyzer_tool` | [`SmellDetection`](../app/core/schemas.py#L35) |
+| **Detector** (Rastreador) | [detector_agent.py:14](../app/agents/detector_agent.py#L14) | `ast_analyzer_tool` | [`SmellDetection`](../app/core/schemas.py#L35) |
 | **Recommender** (Arquiteto) | [recommender_agent.py:16](../app/agents/recommender_agent.py#L16) | `design_pattern_reference_tool`, `KnowledgeTools(get_pattern_knowledge())` | [`RefactoringProposal`](../app/core/schemas.py#L44) |
 | **Critic** (Revisor / Reflection) | [critic_agent.py:15](../app/agents/critic_agent.py#L15) | `syntax_checker_tool`, `diff_generator_tool` | [`ReflectionReview`](../app/core/schemas.py#L51) |
 
@@ -35,9 +35,6 @@ Os três compartilham o mesmo `MistralChat` (`LLM_MODEL_ID`, default
 Prompt em [prompts.py:3](../app/core/prompts.py#L3) (`DETECTOR_INSTRUCTIONS`)
 obriga a chamar `ast_analyzer_tool` **antes** de concluir.
 
-- **`read_source_code_tool`** ([ast_tools.py:16](../app/tools/ast_tools.py#L16))
-  lê o arquivo preservando numeração 1-based. Útil quando o código é grande
-  demais para ser inlinado no prompt.
 - **`ast_analyzer_tool`** ([ast_tools.py:124](../app/tools/ast_tools.py#L124))
   combina `ast` + `radon.complexity.cc_visit` e devolve métricas
   determinísticas:
@@ -54,7 +51,14 @@ classificar com base em números objetivos vindos da tool.
 ### 1.2 Recommender — como usa suas tools
 
 Prompt em [prompts.py:35](../app/core/prompts.py#L35)
-(`RECOMMENDER_INSTRUCTIONS`) força o mapeamento estrito Smell→Pattern.
+(`RECOMMENDER_INSTRUCTIONS`) força o mapeamento estrito Smell→Pattern e
+inclui um bloco **`## Exemplos (few-shot)`** a partir de
+[prompts.py:68](../app/core/prompts.py#L68) — dois pares
+entrada→saída (Strategy e Template Method) extraídos do dataset, mostrando
+(a) `refactored_code` em string JSON única, (b) wrapper preservando a
+assinatura pública e (c) `architectural_explanation` numerado. Veja a
+justificativa do gap que motivou esses exemplos em
+[`docs/agentic_patterns.md`](agentic_patterns.md#15--few-shot-prompting-recommender--critic).
 
 - **`design_pattern_reference_tool`**
   ([pattern_registry.py:274](../app/tools/pattern_registry.py#L274)) é um
@@ -77,9 +81,19 @@ deterministicamente** o pattern via `SMELL_TO_PATTERN[smell_type]`
 
 ### 1.3 Critic — como usa suas tools
 
-Prompt em [prompts.py:69](../app/core/prompts.py#L69) (`CRITIC_INSTRUCTIONS`)
+Prompt em [prompts.py:120](../app/core/prompts.py#L120) (`CRITIC_INSTRUCTIONS`)
 define **5 critérios** (sintaxe, lógica preservada, pattern correto,
-assinaturas públicas, imports controlados) e obriga a usar duas tools:
+assinaturas públicas, imports controlados) e, a partir de
+[prompts.py:165](../app/core/prompts.py#L165), inclui um bloco
+**`## Exemplos (few-shot)`** com 3 casos: 1 aprovação amarrando todos os 5
+critérios na `critique` + 2 rejeições mostrando o formato "Critério N
+falhou: ... Ação: ...". A motivação está documentada em
+[`docs/agentic_patterns.md`](agentic_patterns.md#15--few-shot-prompting-recommender--critic).
+
+> O **Detector** segue **zero-shot** propositalmente — o baseline já marcava
+> F1 = 1.000 sobre 20 amostras; adicionar exemplos ali só introduz ruído.
+
+Obriga a usar duas tools:
 
 - **`syntax_checker_tool`** ([syntax_tools.py:55](../app/tools/syntax_tools.py#L55))
   roda `ast.parse` + `ruff check` num arquivo temporário e devolve

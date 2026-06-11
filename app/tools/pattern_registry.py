@@ -17,8 +17,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from agno.tools import tool
-
 
 class UnknownSmellError(ValueError):
     """Raised when a smell is outside the supported project scope."""
@@ -271,23 +269,3 @@ def list_supported_smells() -> list[str]:
     return sorted(_SMELL_TO_PATTERN.keys())
 
 
-@tool(
-    name="design_pattern_reference_tool",
-    description=(
-        "Retorna a estrutura canônica e regras estritas de UM dos 5 design patterns suportados: "
-        "Strategy Pattern, Builder/Parameter Object, Facade/SRP, Dependency Injection, Template Method."
-    ),
-)
-def design_pattern_reference_tool(pattern_name: str) -> dict[str, Any]:
-    return lookup_pattern(pattern_name)
-
-
-@tool(
-    name="smell_to_pattern_tool",
-    description=(
-        "Recebe um code smell detectado e retorna o smell normalizado e o único design pattern "
-        "permitido dentro do escopo do projeto."
-    ),
-)
-def smell_to_pattern_tool(smell_type: str) -> dict[str, Any]:
-    return resolve_pattern_for_smell(smell_type)

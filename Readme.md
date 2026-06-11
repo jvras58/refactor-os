@@ -32,13 +32,14 @@ Comunicação **Spec-Driven** via Pydantic em `app/core/schemas.py`.
 
 ```
 app/
-├── api/                           # FastAPI: /detect /refactor /evaluate/(detector|refactor|critic|all) /knowledge/sync
+├── api/                           # FastAPI: /detect /refactor /evaluate/(detector|refactor|critic|all)
 ├── agents/                        # Detector, Recommender, Critic
 ├── core/                          # config, prompts, schemas (Pydantic)
-├── db/session.py                  # PostgresDb compartilhado (Agno)
-├── knowledge/                     # PgVector + 5 .md (1 por pattern)
-├── services/                      # refactor / evaluation / quality_checks / knowledge loader
+├── db/session.py                  # PostgresDb compartilhado (Agno — só sessões/traces)
+├── skills/                        # 5 SKILL.md (1 por pattern) — substituem o antigo RAG via PgVector
+├── services/                      # refactor / evaluation / quality_checks
 ├── tools/                         # ast, pattern_registry, diff, syntax
+├── utils/                         # retry helper (backoff em 429 do Mistral)
 ├── templates/                     # dashboard.html (Jinja2)
 └── main.py                        # FastAPI ASGI entry point
 dataset/
@@ -62,11 +63,11 @@ chave de API gratuita do Mistral:
 2. Em **API Keys** gere uma nova chave (formato `oj2Z...`).
 3. Cole no `.env` como `MISTRAL_API_KEY=oj2Z...`.
 
-Para a base de conhecimento, usamos **HuggingfaceCustomEmbedder**
-(BAAI/bge-small-en-v1.5, 384 dims) via **HF Inference API** gratuita
-— sem compilacao Rust, sem provedor pago. Crie um token gratuito em
-https://huggingface.co/settings/tokens e adicione no `.env` como
-`HUGGINGFACE_API_KEY=hf_...`.
+> **Conhecimento de patterns:** o Recommender carrega os 5 `SKILL.md` em
+> `app/skills/` sob demanda via Agno Skills — **não há embeddings nem
+> RAG** (decisão documentada em
+> [`docs/agentic_patterns.md` §16](docs/agentic_patterns.md#16--skills-substituem-rag-decisão-arquitetural)).
+> Logo, **não é necessário** token HuggingFace nem `pgvector`.
 
 ```bash
 cp .env.example .env
@@ -83,7 +84,12 @@ ajuste `LLM_MODEL_ID` no `.env`.
 
 ### Local
 ```bash
-docker compose up -d postgres        # sobe pgvector na porta 5532
+docker compose up -d postgres        # sobe Postgres na porta 5532 (sessões/traces do Agno)
+uv run python -m uvicorn app.main:app --reload
+
+# se quiser usar o launcher uvicorn direto, recrie a venv para regenerar os binários
+# DELETE A PASTA .venv
+uv sync --extra dev
 uv run uvicorn app.main:app --reload
 ```
 
@@ -100,7 +106,6 @@ docker compose up --build
 - `POST /api/v1/evaluate/refactor` — **Agente Refatorador**: precisão/qualidade da solução.
 - `POST /api/v1/evaluate/critic` — **Agente Revisor**: false accept / false reject.
 - `POST /api/v1/evaluate/all` — os três relatórios de uma vez.
-- `POST /api/v1/knowledge/sync` — indexa os 5 patterns no PgVector.
 - `GET  /`          - health endpoint
 - `GET  /dashboard` - Dashboard para uso do pepiline.
 
@@ -115,15 +120,16 @@ Três avaliações independentes, uma por agente (escopo 10 problemas + 10 solu�
 | **Revisor** (Critic) | False Accept (aprovou incorreta) e False Reject (reprovou correta) | `/evaluate/critic` |
 
 ```bash
-# 1. indexar a base de patterns
-curl -X POST http://localhost:8000/api/v1/knowledge/sync
-
-# 2a. via CLI — imprime tabelas e gera o relatório (.md auto-contido + .json)
+# via CLI — imprime tabelas e gera o relatório (.md auto-contido + .json)
 uv run python scripts/run_evaluation.py --all --md dataset/reports/evaluation.md --json dataset/reports/evaluation.json
 
-# 2b. via API — relatório completo
+# via API — relatório completo
 curl -X POST http://localhost:8000/api/v1/evaluate/all
 ```
+
+> Não há etapa de "sync" — o conhecimento de patterns vive em `app/skills/` e é
+> carregado pelo Agno na inicialização do Recommender. Editar uma `SKILL.md`
+> + reiniciar o servidor é o ciclo completo.
 
 O dataset (`dataset/README.md`) já traz os 10/10 de cada eixo; é só expandir se quiser mais.
 

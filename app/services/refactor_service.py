@@ -35,6 +35,14 @@ _DETECT_FALLBACK = SmellDetection(
     reasoning="Detector falhou — erro interno ao chamar o agente.",
 )
 
+_PATTERN_TO_SKILL: dict[DesignPatternType, str] = {
+    DesignPatternType.STRATEGY: "strategy-pattern",
+    DesignPatternType.BUILDER: "builder-parameter-object",
+    DesignPatternType.FACADE_SRP: "facade-srp",
+    DesignPatternType.DEPENDENCY_INJECTION: "dependency-injection",
+    DesignPatternType.TEMPLATE_METHOD: "template-method",
+}
+
 
 class RefactorService:
     """High-level façade that runs the multi-agent refactoring pipeline."""
@@ -64,6 +72,7 @@ class RefactorService:
         prior_critique: str | None = None,
     ) -> RefactoringProposal:
         expected = SMELL_TO_PATTERN.get(detection.smell_type, DesignPatternType.NONE)
+        skill_name = _PATTERN_TO_SKILL.get(expected, "")
         critique_block = (
             f"\n\nFeedback do Critic na rodada anterior (corrija obrigatoriamente):\n{prior_critique}"
             if prior_critique
@@ -72,10 +81,12 @@ class RefactorService:
         prompt = (
             f"Smell detectado: {detection.smell_type.value}\n"
             f"Pattern obrigatório: {expected.value}\n"
+            f"Skill obrigatório: {skill_name}\n"
             f"Justificativa do Detector: {detection.reasoning}\n"
             f"Linhas afetadas: {detection.line_start}-{detection.line_end}\n\n"
-            "Use obrigatoriamente `design_pattern_reference_tool` para consultar a estrutura "
-            "canônica do pattern antes de propor o código.\n\n"
+            f"Use obrigatoriamente `get_skill_instructions(name='{skill_name}')` para consultar "
+            "a estrutura canônica, regras estritas e o exemplo canônico do pattern antes de "
+            "propor o código.\n\n"
             f"Código original:\n```python\n{source_code}\n```"
             f"{critique_block}\n\n"
             "Retorne RefactoringProposal. "

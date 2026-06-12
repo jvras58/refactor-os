@@ -31,9 +31,10 @@ Os três compartilham o mesmo `MistralChat` (`LLM_MODEL_ID`, default
 [`build_parser_model()`](../app/core/llm.py) (mesmo modelo, temperatura 0)
 para extrair o `output_schema` sem confundir tool/skill-calling com JSON-mode
 forçado. Nenhum agente recebe `db=` — são **stateless por chamada**, sem
-sessão/memória persistida. O que muda entre eles é o **prompt**
-([app/core/prompts.py](../app/core/prompts.py)), as **tools/skills** e o
-**`output_schema`**.
+sessão/memória persistida (justificativa em
+[`agentic_patterns.md` §17](agentic_patterns.md#17--stateless-agents-sem-postgresdb)).
+O que muda entre eles é o **prompt** ([app/core/prompts.py](../app/core/prompts.py)),
+as **tools/skills** e o **`output_schema`**.
 
 ### 1.1 Detector — como usa suas tools
 

@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     api_host: str = Field(default="0.0.0.0")
     api_port: int = Field(default=8000)
 
-    mistral_api_key: str = Field(default="")
+    llm_api_key: str = Field(default="")
     llm_model_id: str = Field(default="mistral-medium-latest")
     llm_temperature: float = Field(default=0.2, ge=0.0, le=1.0)
 

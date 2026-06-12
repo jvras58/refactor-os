@@ -30,29 +30,32 @@ do `refactor-os`.
 
 | Camada            | Caminho                            | Responsabilidade                                                   |
 |-------------------|------------------------------------|--------------------------------------------------------------------|
-| API               | `app/api/routes.py`                | Endpoints FastAPI (`/detect`, `/refactor`, `/evaluate/{detector,refactor,critic,all}`, `/knowledge/sync`). |
+| API               | `app/api/routes.py`                | Endpoints FastAPI (`/detect`, `/refactor`, `/evaluate/{detector,refactor,critic,all}`). |
 | Service           | `app/services/refactor_service.py` | Orquestra a pipeline determinística com reflection loop.           |
-| Agente            | `app/agents/*_agent.py`            | Factories que constroem cada `Agent` da Agno.                      |
-| Tools             | `app/tools/*.py`                   | Funções determinísticas (AST, diff, syntax, registry de patterns). |
-| Schemas           | `app/core/schemas.py`              | Contratos Pydantic trocados entre os agentes.                      |
-| Knowledge         | `app/knowledge/`                   | Provider PgVector + 5 `.md` (1 por design pattern).                |
-| DB                | `app/db/session.py`                | `PostgresDb` compartilhado (sessões / traces).                     |
+| Agente            | `app/agents/*_agent.py`            | Factories que constroem cada `Agent` da Agno (stateless — sem `db=`).|
+| LLM               | `app/core/llm.py`                  | `build_main_model()` (tool/skill calling) + `build_parser_model()` (extração de JSON). |
+| Tools             | `app/tools/*.py`                   | Funções determinísticas (AST, diff, syntax).                       |
+| Schemas           | `app/core/schemas.py`              | Contratos Pydantic trocados entre os agentes + mapeamento `SMELL_TO_PATTERN`.|
+| Skills            | `app/skills/<pattern>/SKILL.md`    | 5 skills Agno (1 por design pattern) — conhecimento canônico carregado sob demanda pelo Recommender via `get_skill_instructions`. Substitui o antigo RAG via PgVector. |
+| Utils             | `app/utils/retry.py`               | `arun_with_backoff` (429s) + `arun_typed` (retry quando parser_model devolve string crua). |
 
 ## Como cada agente é construído
 
-Cada factory recebe configuração via `app.core.config.get_settings()` e injeta:
-- `model` (OpenAI gpt-4o por padrão)
-- `db` (PostgresDb compartilhado para sessões)
-- `tools` específicas do papel
-- `instructions` do `app/core/prompts.py`
-- `output_schema` Pydantic (Spec-Driven)
+Cada factory injeta:
+- `model` via `build_main_model()` — Mistral configurado para tool/skill calling.
+- `parser_model` via `build_parser_model()` — Mistral em temperatura 0, sem tools, só para extrair o `output_schema`.
+- `tools` ou `skills` específicas do papel.
+- `instructions` do `app/core/prompts.py`.
+- `output_schema` Pydantic (Spec-Driven).
+
+Nenhum agente recebe `db=` — o pipeline é stateless por requisição.
 
 ```python
 # app/agents/detector_agent.py (resumo)
 return Agent(
     id="detector-agent",
-    model=OpenAIChat(id=settings.llm_model_id),
-    db=get_db(),
+    model=build_main_model(),
+    parser_model=build_parser_model(),
     tools=[ast_analyzer_tool],
     instructions=DETECTOR_INSTRUCTIONS,
     output_schema=SmellDetection,
@@ -73,13 +76,16 @@ mensurável de forma independente.
 - Retorna `SmellDetection` (Pydantic, validado por `output_schema`).
 
 ### 2. `service.propose(source_code, detection, prior_critique=None)`
-- Resolve o pattern obrigatório via `SMELL_TO_PATTERN[smell_type]`.
-- Constrói o prompt incluindo: o smell detectado, o pattern obrigatório, a
-  justificativa do Detector, as linhas afetadas e (se houver) a crítica da
-  iteração anterior.
+- Resolve o pattern obrigatório via `SMELL_TO_PATTERN[smell_type]` e o nome do
+  skill correspondente via `_PATTERN_TO_SKILL[expected_pattern]`.
+- Constrói o prompt incluindo: o smell detectado, o pattern obrigatório, o
+  **skill obrigatório**, a justificativa do Detector, as linhas afetadas e
+  (se houver) a crítica da iteração anterior.
 - Chama `recommender_agent.run(prompt)`.
-- O Recommender consulta `design_pattern_reference_tool` + `KnowledgeTools`
-  (PgVector) para evitar alucinação.
+- O Recommender é instruído a chamar `get_skill_instructions(name="<skill>")`
+  para carregar a estrutura canônica + exemplo do pattern antes de propor o
+  código. O `Skills(loaders=[LocalSkills("app/skills")])` é injetado pela
+  factory do agente.
 - Retorna `RefactoringProposal`.
 
 ### 3. `service.review(source_code, proposal)`

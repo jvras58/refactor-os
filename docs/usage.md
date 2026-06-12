@@ -6,16 +6,21 @@ Guia prático para subir o `refactor-os` e exercitar a pipeline.
 
 - Python 3.13+
 - [`uv`](https://docs.astral.sh/uv/) para dependências
-- Docker (opcional, para Postgres+pgvector)
+- Docker (opcional, só para empacotar o app)
 - Chave da Mistral (`MISTRAL_API_KEY`) — gratuita em [console.mistral.ai](https://console.mistral.ai) → **API Keys** → *Create API Key* (formato `oj2Z...`)
-- Token do HuggingFace (`HUGGINGFACE_API_KEY`) — gratuito em [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens) → *New token* → tipo **Read** (formato `hf_...`). Usado para embeddings via Inference API, sem custo.
+
+> **Sem embeddings, sem HuggingFace, sem Postgres.** O conhecimento dos 5
+> patterns vive em `app/skills/<pattern>/SKILL.md` e é carregado sob demanda
+> pelo Recommender via Agno Skills. Os agentes são **stateless por chamada**
+> (Agno aceita `db=None`), então não precisam de sessão persistida.
+> Justificativa em [`agentic_patterns.md` §16](agentic_patterns.md#16--skills-substituem-rag-decisão-arquitetural).
 
 ## 2. Setup
 
 ```bash
 git clone <repo>
 cd refactor-os
-cp .env.example .env       # preencha MISTRAL_API_KEY e HUGGINGFACE_API_KEY
+cp .env.example .env       # preencha MISTRAL_API_KEY
 uv sync --extra dev
 ```
 
@@ -24,25 +29,10 @@ uv sync --extra dev
 ```env
 MISTRAL_API_KEY=oj2ZA...
 LLM_MODEL_ID=mistral-medium-latest
-HUGGINGFACE_API_KEY=hf_...
-DB_URL=postgresql+psycopg://ai:ai@localhost:5532/ai
 MAX_REFLECTION_ITERATIONS=3
 ```
 
-
-## 3. Subir o Postgres (PgVector)
-
-```bash
-docker compose up -d postgres
-```
-
-Sobe `agnohq/pgvector:16` na porta `5532`. Healthcheck embutido.
-
-> **Embeddings via HuggingFace Inference API (gratuita):** o projeto usa
-> `HuggingfaceCustomEmbedder` com `BAAI/bge-small-en-v1.5` (384 dims) — sem custo, sem
-> compilação Rust. Requer apenas `HUGGINGFACE_API_KEY` (token Read gratuito do HF).
-
-## 4. Rodar a aplicação
+## 3. Rodar a aplicação
 
 ### Desenvolvimento (reload automático)
 
@@ -52,13 +42,13 @@ uv run uvicorn app.main:app --reload
 
 API em `http://127.0.0.1:8000`. Docs Swagger em `/docs`.
 
-### Stack completa via Docker
+### Via Docker
 
 ```bash
 docker compose up --build
 ```
 
-## 5. Endpoints
+## 4. Endpoints
 
 Base: `http://127.0.0.1:8000/api/v1`
 
@@ -71,18 +61,14 @@ Base: `http://127.0.0.1:8000/api/v1`
 | POST   | `/evaluate/refactor` | Avalia o Recommender (qualidade/refatoração). Body vazio → dataset; body com `samples` → código submetido. |
 | POST   | `/evaluate/critic`  | Avalia o Critic (false accept/false reject). Body vazio → dataset; body com `samples` → código submetido. |
 | POST   | `/evaluate/all`     | Roda as 3 avaliações de uma vez. Body vazio → tudo no dataset; body com `detector`/`refactor`/`critic` → cada seção pode ir ad-hoc independentemente. |
-| POST   | `/knowledge/sync`  | Indexa os 5 `.md` de patterns no PgVector.                  |
 
-## 6. Fluxo recomendado de uso
+> O antigo `POST /knowledge/sync` **não existe mais** — não há base vetorial
+> para sincronizar. Os skills em `app/skills/` são carregados na inicialização
+> do Recommender (Agno faz isso sozinho).
 
-### Passo 1 — Indexar a base de patterns (uma vez)
+## 5. Fluxo recomendado de uso
 
-```bash
-curl -X POST http://127.0.0.1:8000/api/v1/knowledge/sync
-# → {"loaded": 5}
-```
-
-### Passo 2 — Testar a detecção isolada
+### Passo 1 — Testar a detecção isolada
 
 ```bash
 curl -X POST http://127.0.0.1:8000/api/v1/detect \
@@ -105,7 +91,7 @@ Resposta (resumida):
 }
 ```
 
-### Passo 3 — Pipeline completa
+### Passo 2 — Pipeline completa
 
 ```bash
 curl -X POST http://127.0.0.1:8000/api/v1/refactor \
@@ -135,7 +121,7 @@ Resposta (`RefactorResult`):
 - `iterations` — quantas iterações de reflection rodaram.
 - `approved` — `True` se o Critic aprovou.
 
-### Passo 4 — Avaliação empírica
+### Passo 3 — Avaliação empírica
 
 Cada agente é avaliado de forma independente. Sem body → roda sobre o dataset fixo;
 com `samples` no body → roda sobre o código submetido (rótulo esperado obrigatório).
@@ -163,7 +149,7 @@ Resposta agregada (`/evaluate/all`):
 Veja `Readme.md` → *Avaliação com código submetido (ad-hoc)* para o schema completo
 das amostras por agente.
 
-## 7. Uso programático (sem HTTP)
+## 6. Uso programático (sem HTTP)
 
 ```python
 from app.core.schemas import RefactorRequest
@@ -174,7 +160,7 @@ result = service.run(RefactorRequest(source_code=open("script.py").read()))
 print(result.approved, result.proposal.applied_pattern)
 ```
 
-## 8. Expandindo o dataset (ground truth)
+## 7. Expandindo o dataset (ground truth)
 
 1. Adicione `dataset/examples/NN_descricao.py` com o smell intencional.
 2. Acrescente uma entrada em `dataset/ground_truth.json`:
@@ -191,34 +177,29 @@ print(result.approved, result.proposal.applied_pattern)
 
 Veja `dataset/README.md` para detalhes da metodologia.
 
-## 9. Testes
+## 8. Testes
 
 ```bash
 uv run pytest
 ```
 
-Cobre as tools determinísticas (`ast`, `diff`, `pattern_registry`, `syntax`).
+Cobre as tools determinísticas (`ast`, `diff`, `syntax`).
 Os agentes em si são exercitados pelo dataset de avaliação.
 
-## 10. Variáveis de ambiente úteis
+## 9. Variáveis de ambiente úteis
 
 | Var                          | Default                                              | Descrição                         |
 |------------------------------|------------------------------------------------------|-----------------------------------|
 | `MISTRAL_API_KEY`            | —                                                    | Obrigatória (gere em https://console.mistral.ai). |
 | `LLM_MODEL_ID`               | `mistral-medium-latest`                              | Modelo Mistral servido pela Mistral.   |
-| `HUGGINGFACE_API_KEY`        | —                                                    | Token Read do HF para embeddings via Inference API. |
-| `DB_URL`                     | `postgresql+psycopg://ai:ai@localhost:5532/ai`       | Postgres+pgvector.                |
-| `KNOWLEDGE_TABLE`            | `design_patterns_kb`                                 | Tabela do KB.                     |
 | `MAX_REFLECTION_ITERATIONS`  | `3`                                                  | Limite do reflection loop.        |
 | `LOG_LEVEL`                  | `INFO`                                               | Nível de log.                     |
 | `API_HOST` / `API_PORT`      | `0.0.0.0` / `8000`                                   | Host e porta do uvicorn.          |
 
-## 11. Troubleshooting
+## 10. Troubleshooting
 
 | Sintoma                                    | Causa provável                              | Ação                                                 |
 |--------------------------------------------|---------------------------------------------|------------------------------------------------------|
 | `MISTRAL_API_KEY is required`                 | `.env` não preenchido.                      | Preencha `MISTRAL_API_KEY` (gere em https://console.mistral.ai).  |
 | `401 Unauthorized` da Mistral                 | Chave inválida / revogada.                  | Gere uma nova em https://console.mistral.ai → API Keys.        |
-| `401 Unauthorized` do HuggingFace             | Token inválido / sem permissao.             | Gere um token Read em https://huggingface.co/settings/tokens.  |
-| Conexão recusada na porta 5532             | Postgres não subiu.                         | `docker compose up -d postgres`.                     |     |
 | Reflection sempre estoura `iterations=3`   | Crítica do Critic não está sendo acionável. | Ajuste o prompt em `app/core/prompts.py`.            |

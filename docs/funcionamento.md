@@ -18,17 +18,23 @@ factories em [app/agents/](../app/agents/). Cada agente é especialista em uma
 única responsabilidade, recebe apenas as tools que precisa para ela e devolve
 um schema Pydantic validado (Spec-Driven).
 
-| Agente | Factory | Tools recebidas | Output (Pydantic) |
+| Agente | Factory | Tools / Skills | Output (Pydantic) |
 |---|---|---|---|
-| **Detector** (Rastreador) | [detector_agent.py:14](../app/agents/detector_agent.py#L14) | `read_source_code_tool`, `ast_analyzer_tool` | [`SmellDetection`](../app/core/schemas.py#L35) |
-| **Recommender** (Arquiteto) | [recommender_agent.py:16](../app/agents/recommender_agent.py#L16) | `design_pattern_reference_tool`, `KnowledgeTools(get_pattern_knowledge())` | [`RefactoringProposal`](../app/core/schemas.py#L44) |
-| **Critic** (Revisor / Reflection) | [critic_agent.py:15](../app/agents/critic_agent.py#L15) | `syntax_checker_tool`, `diff_generator_tool` | [`ReflectionReview`](../app/core/schemas.py#L51) |
+| **Detector** (Rastreador) | [detector_agent.py:14](../app/agents/detector_agent.py#L14) | tool: `ast_analyzer_tool` | [`SmellDetection`](../app/core/schemas.py#L35) |
+| **Recommender** (Arquiteto) | [recommender_agent.py:16](../app/agents/recommender_agent.py#L16) | skills: `Skills(loaders=[LocalSkills("app/skills")])` → expõe `get_skill_instructions` | [`RefactoringProposal`](../app/core/schemas.py#L44) |
+| **Critic** (Revisor / Reflection) | [critic_agent.py:15](../app/agents/critic_agent.py#L15) | tools: `syntax_checker_tool`, `diff_generator_tool` | [`ReflectionReview`](../app/core/schemas.py#L51) |
 
 Os três compartilham o mesmo `MistralChat` (`LLM_MODEL_ID`, default
-`mistral-medium-latest`) e a mesma `PostgresDb` (sessões/traces) via
-[get_db()](../app/db/session.py). O que muda é o **prompt**
-([app/core/prompts.py](../app/core/prompts.py)), as **tools** e o
-**`output_schema`**.
+`mistral-medium-latest`) construído pelo
+[`build_main_model()`](../app/core/llm.py), e cada um também recebe um
+`parser_model` separado pela
+[`build_parser_model()`](../app/core/llm.py) (mesmo modelo, temperatura 0)
+para extrair o `output_schema` sem confundir tool/skill-calling com JSON-mode
+forçado. Nenhum agente recebe `db=` — são **stateless por chamada**, sem
+sessão/memória persistida (justificativa em
+[`agentic_patterns.md` §17](agentic_patterns.md#17--stateless-agents-sem-postgresdb)).
+O que muda entre eles é o **prompt** ([app/core/prompts.py](../app/core/prompts.py)),
+as **tools/skills** e o **`output_schema`**.
 
 ### 1.1 Detector — como usa suas tools
 
@@ -48,35 +54,57 @@ Switch`, `>20 membros → God Class`, `≥5 params → Long Parameter List`), o 
 **reduz drasticamente o espaço para alucinação**: o LLM precisa apenas
 classificar com base em números objetivos vindos da tool.
 
-### 1.2 Recommender — como usa suas tools
+### 1.2 Recommender — como usa Skills no lugar de RAG
 
 Prompt em [prompts.py:35](../app/core/prompts.py#L35)
-(`RECOMMENDER_INSTRUCTIONS`) força o mapeamento estrito Smell→Pattern.
+(`RECOMMENDER_INSTRUCTIONS`) força o mapeamento estrito Smell→Pattern e obriga
+o agente a chamar `get_skill_instructions(name="<skill>")` antes de propor o
+código. O nome do skill é injetado **deterministicamente** pelo serviço (não
+é o LLM que escolhe).
 
-- **`design_pattern_reference_tool`**
-  ([pattern_registry.py:274](../app/tools/pattern_registry.py#L274)) é um
-  **registro fechado** com `intent`, `structure` e `rules` de cada um dos 5
-  patterns. O agente é obrigado a chamá-lo com o nome do pattern obrigatório
-  antes de propor código — isso garante que a estrutura canônica venha do
-  registro, não da memória do modelo. Aliases (`"strategy"`, `"di"`, `"srp"`,
-  …) são normalizados em `_PATTERN_ALIASES`
-  ([pattern_registry.py:97](../app/tools/pattern_registry.py#L97)).
-- **`KnowledgeTools(get_pattern_knowledge())`** dá ao Recommender acesso de
-  retrieval semântico aos `.md` de cada pattern indexados no PgVector — é a
-  parte que usa embeddings (ver §2). O agente pode buscar exemplos e
-  justificativas para enriquecer o `architectural_explanation` sem inventar.
+- **Skills** ([recommender_agent.py:14](../app/agents/recommender_agent.py#L14)) —
+  `Skills(loaders=[LocalSkills(SKILLS_DIR)])` aponta para [`app/skills/`](../app/skills/),
+  que contém 5 `SKILL.md`, uma por pattern do escopo:
+  `strategy-pattern`, `builder-parameter-object`, `facade-srp`,
+  `dependency-injection`, `template-method`.
+  - **System prompt automático:** o Agno injeta no system prompt apenas as
+    `description:` curtas de cada skill — o corpo (regras, exemplo, justificativa)
+    só entra no contexto quando o agente chama `get_skill_instructions`.
+  - **Tools expostas automaticamente:** `get_skill_instructions(name)`,
+    `get_skill_reference(name, path)`, `get_skill_script(name, path)`. No nosso
+    fluxo só usamos a primeira.
+  - **Resolução determinística:** `service.propose()` traduz o
+    `expected_pattern` (`SMELL_TO_PATTERN[detection.smell_type]`) no nome do
+    skill via `_PATTERN_TO_SKILL` em
+    [`refactor_service.py`](../app/services/refactor_service.py) e o injeta no
+    prompt. O LLM não precisa adivinhar o nome.
 
-A função `service.propose()`
-([refactor_service.py:59](../app/services/refactor_service.py#L59)) **resolve
-deterministicamente** o pattern via `SMELL_TO_PATTERN[smell_type]`
-([schemas.py:25](../app/core/schemas.py#L25)) e o injeta no prompt como
-"pattern obrigatório" — o LLM não escolhe o pattern; ele só implementa.
+A função `service.propose()` **resolve deterministicamente** o pattern via
+`SMELL_TO_PATTERN[smell_type]` ([schemas.py:25](../app/core/schemas.py#L25)) e
+o injeta no prompt como "pattern obrigatório" + "skill obrigatório" — o LLM
+não escolhe o pattern; ele só carrega o skill correspondente e implementa.
+
+> **Antes:** o Recommender usava `KnowledgeTools(get_pattern_knowledge())` com
+> PgVector + HuggingFace embeddings para fazer retrieval semântico dos `.md` de
+> patterns. **Agora:** zero embeddings, lookup por nome, conteúdo do skill
+> carregado sob demanda. Justificativa completa da migração em
+> [`docs/agentic_patterns.md`](agentic_patterns.md#16--skills-substituem-rag-decisão-arquitetural).
 
 ### 1.3 Critic — como usa suas tools
 
-Prompt em [prompts.py:69](../app/core/prompts.py#L69) (`CRITIC_INSTRUCTIONS`)
+Prompt em [prompts.py:120](../app/core/prompts.py#L120) (`CRITIC_INSTRUCTIONS`)
 define **5 critérios** (sintaxe, lógica preservada, pattern correto,
-assinaturas públicas, imports controlados) e obriga a usar duas tools:
+assinaturas públicas, imports controlados) e, a partir de
+[prompts.py:165](../app/core/prompts.py#L165), inclui um bloco
+**`## Exemplos (few-shot)`** com 3 casos: 1 aprovação amarrando todos os 5
+critérios na `critique` + 2 rejeições mostrando o formato "Critério N
+falhou: ... Ação: ...". A motivação está documentada em
+[`docs/agentic_patterns.md`](agentic_patterns.md#15--few-shot-prompting-recommender--critic).
+
+> O **Detector** segue **zero-shot** propositalmente — o baseline já marcava
+> F1 = 1.000 sobre 20 amostras; adicionar exemplos ali só introduz ruído.
+
+Obriga a usar duas tools:
 
 - **`syntax_checker_tool`** ([syntax_tools.py:55](../app/tools/syntax_tools.py#L55))
   roda `ast.parse` + `ruff check` num arquivo temporário e devolve
@@ -91,60 +119,66 @@ Recommender no próximo ciclo de reflection.
 
 ---
 
-## 2. Embeddings — quem usa e por quê
+## 2. Skills — onde vive o conhecimento dos patterns
 
-**Quem usa:** apenas o **Recommender**, via a tool `KnowledgeTools` instanciada
-em [recommender_agent.py:31](../app/agents/recommender_agent.py#L31).
+**Quem usa:** apenas o **Recommender**, via `Skills(loaders=[LocalSkills(...)])`
+instanciado em
+[recommender_agent.py:14](../app/agents/recommender_agent.py#L14).
 
 **Por quê:** o Recommender é o único agente que precisa de **conhecimento
-canônico aberto** sobre cada pattern (intent, estrutura, exemplos) para
+canônico aberto** sobre cada pattern (intent, estrutura, exemplo) para
 fundamentar o `architectural_explanation` e o código gerado. Detector e Critic
 operam sobre fatos determinísticos do código (AST/radon, ruff, diff), não
-precisam de retrieval semântico.
+precisam de conhecimento externo.
 
-**Por que retrieval em vez de inlinear no prompt:** os 5 `.md` em
-[app/knowledge/patterns/](../app/knowledge/patterns/) são longos e crescerão.
-PgVector permite injetar **só os trechos relevantes** ao smell em questão,
-mantendo o prompt enxuto e o custo de tokens previsível.
+**Por que skills em vez de RAG (decisão arquitetural):** o escopo é fechado
+em 5 patterns e o mapeamento smell→pattern é 1-pra-1. Top-k semântico não
+agrega valor — adiciona ruído (e dependência de embeddings, pgvector, token
+HuggingFace). Skills oferecem **lookup determinístico por nome**, conteúdo
+**lazy-loaded** sob demanda, e zero infra externa. Justificativa completa em
+[`docs/agentic_patterns.md`](agentic_patterns.md#16--skills-substituem-rag-decisão-arquitetural).
 
-### 2.1 Como o KB é construído
-
-[provider.py:20](../app/knowledge/provider.py#L20)
-(`get_pattern_knowledge`, com `@lru_cache`) monta a stack:
-
-```
-HuggingfaceCustomEmbedder(BAAI/bge-small-en-v1.5, 384 dims)
-        │  HF Inference API gratuita (HUGGINGFACE_API_KEY)
-        ▼
-PgVector(table=design_patterns_kb, db_url=…)
-        │
-        ▼
-Knowledge(name="design-patterns-kb", contents_db=PostgresDb)
-```
-
-A escolha por **HF Inference API + `bge-small-en-v1.5` (384 dim)** é
-deliberada:
-- **gratuito** (só pede um token Read do HF);
-- **sem compilação Rust local** (evita o `tokenizers` nativo);
-- modelo pequeno e rápido o suficiente para uma base de 5 documentos;
-- 384 dimensões batem com a tabela do PgVector criada por Agno.
-
-### 2.2 Como o KB é populado
-
-`POST /api/v1/knowledge/sync` dispara
-[`load_patterns_into_kb`](../app/services/knowledge_service.py#L14):
+### 2.1 Estrutura de um skill
 
 ```
-for cada *.md em app/knowledge/patterns/:
-    knowledge.ainsert(name=stem, path=…)   # paraleliza com asyncio.gather
-return len(arquivos)
+app/skills/strategy-pattern/
+└── SKILL.md
 ```
 
-Cada `.md` é dividido em chunks pela Agno, cada chunk vira um embedding via HF
-e é gravado em `design_patterns_kb`. Em tempo de uso, o `KnowledgeTools` que o
-Recommender carrega permite ao LLM emitir queries do tipo *"estrutura
-canônica do Strategy Pattern aplicado a switch sobre tipo"* e receber os
-trechos top-K mais similares.
+Cada `SKILL.md` tem YAML frontmatter (`name`, `description`) + corpo Markdown
+com: intent, estrutura canônica, regras estritas, exemplo problema→solução
+completo (extraído de `dataset/`), justificativa arquitetural numerada e
+benefícios esperados.
+
+**Apenas a `description` curta entra no system prompt o tempo todo** — o corpo
+só vai pro contexto quando o agente chama `get_skill_instructions(name=...)`.
+
+### 2.2 Como o agente descobre o skill certo
+
+O `service.propose()` traduz o `expected_pattern`
+(`SMELL_TO_PATTERN[detection.smell_type]`) no nome do skill via
+`_PATTERN_TO_SKILL` em
+[`refactor_service.py`](../app/services/refactor_service.py) e injeta no
+prompt da chamada — o LLM recebe literalmente:
+
+```
+Skill obrigatório: strategy-pattern
+Use obrigatoriamente `get_skill_instructions(name='strategy-pattern')` ...
+```
+
+Resultado: o nome do skill é **determinístico** (vem do Python, não da decisão
+do LLM), e o conteúdo do skill carregado é **exatamente o relevante** para o
+smell detectado.
+
+### 2.3 Mapeamento smell → pattern → skill
+
+| Smell | Pattern (`DesignPatternType`) | Skill (`app/skills/...`) |
+|---|---|---|
+| Complex/Long Switch Statements | `STRATEGY` | `strategy-pattern` |
+| Long Parameter List | `BUILDER` | `builder-parameter-object` |
+| God Class | `FACADE_SRP` | `facade-srp` |
+| Tight Coupling | `DEPENDENCY_INJECTION` | `dependency-injection` |
+| Duplicated Code | `TEMPLATE_METHOD` | `template-method` |
 
 ---
 
@@ -161,8 +195,9 @@ exato de iterações e (iii) métricas isoladas por estágio.
 
 `RefactorService.__init__` instancia os três agentes uma única vez
 ([refactor_service.py:41](../app/services/refactor_service.py#L41)). Como
-`get_settings()` e `get_db()` são `lru_cache`, todos compartilham a mesma
-sessão Postgres.
+`get_settings()` é `lru_cache`, todos os agentes compartilham a mesma
+configuração. Não há `db=` nem sessão persistida — o pipeline é stateless por
+requisição.
 
 ### 3.2 Três métodos por estágio
 
@@ -278,10 +313,11 @@ de uma fonte controlada.
 Onde fica o conhecimento que orienta os agentes a acertarem?
 
 1. **Mapeamento Smell→Pattern** vive em código
-   ([schemas.py:25](../app/core/schemas.py#L25),
-   [pattern_registry.py:117](../app/tools/pattern_registry.py#L117)).
-2. **Estrutura canônica dos patterns** vive nos `.md` indexados (§2) —
-   isso sim é "consultado" pelo Recommender em tempo de execução.
+   ([schemas.py:25](../app/core/schemas.py#L25)) — o `BadSmellType` enum é
+   estrito, então não há camada de aliases a manter.
+2. **Estrutura canônica dos patterns** vive nos `SKILL.md` em
+   [`app/skills/`](../app/skills/) (§2) — carregada sob demanda pelo
+   Recommender via `get_skill_instructions`.
 3. **Critérios de aprovação** vivem nos prompts
    ([prompts.py](../app/core/prompts.py)).
 4. **Métricas objetivas** vêm de tools determinísticas (AST, radon, ruff,
@@ -289,8 +325,7 @@ Onde fica o conhecimento que orienta os agentes a acertarem?
 
 O dataset apenas mede a aderência dos agentes a essas fontes. Esse desenho é
 proposital: o resultado da avaliação aponta **onde melhorar** (prompt,
-threshold, conteúdo do `.md`, escopo do `pattern_registry`) sem precisar de
-um loop de treino.
+threshold, conteúdo de uma `SKILL.md`) sem precisar de um loop de treino.
 
 ---
 

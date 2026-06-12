@@ -28,13 +28,10 @@ def settings() -> config.Settings:
 def settings_factory(tmp_path):
     def _factory(**overrides) -> config.Settings:
         dataset_dir = overrides.pop("dataset_dir", tmp_path / "dataset")
-        patterns_dir = overrides.pop("patterns_dir", tmp_path / "patterns")
         dataset_dir.mkdir(parents=True, exist_ok=True)
-        patterns_dir.mkdir(parents=True, exist_ok=True)
         return config.Settings(
             _env_file=None,
             dataset_dir=dataset_dir,
-            patterns_dir=patterns_dir,
             **overrides,
         )
 
@@ -55,11 +52,6 @@ def use_settings(monkeypatch):
         )
         monkeypatch.setattr(
             "app.services.refactor_service.get_settings",
-            lambda: settings,
-            raising=False,
-        )
-        monkeypatch.setattr(
-            "app.services.knowledge_service.get_settings",
             lambda: settings,
             raising=False,
         )

@@ -194,7 +194,7 @@ Veja `dataset/README.md` para detalhes da metodologia.
 uv run pytest
 ```
 
-Cobre as tools determinísticas (`ast`, `diff`, `pattern_registry`, `syntax`).
+Cobre as tools determinísticas (`ast`, `diff`, `syntax`).
 Os agentes em si são exercitados pelo dataset de avaliação.
 
 ## 10. Variáveis de ambiente úteis

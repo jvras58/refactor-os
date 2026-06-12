@@ -306,10 +306,11 @@ de uma fonte controlada.
 Onde fica o conhecimento que orienta os agentes a acertarem?
 
 1. **Mapeamento Smell→Pattern** vive em código
-   ([schemas.py:25](../app/core/schemas.py#L25),
-   [pattern_registry.py:117](../app/tools/pattern_registry.py#L117)).
-2. **Estrutura canônica dos patterns** vive nos `.md` indexados (§2) —
-   isso sim é "consultado" pelo Recommender em tempo de execução.
+   ([schemas.py:25](../app/core/schemas.py#L25)) — o `BadSmellType` enum é
+   estrito, então não há camada de aliases a manter.
+2. **Estrutura canônica dos patterns** vive nos `SKILL.md` em
+   [`app/skills/`](../app/skills/) (§2) — carregada sob demanda pelo
+   Recommender via `get_skill_instructions`.
 3. **Critérios de aprovação** vivem nos prompts
    ([prompts.py](../app/core/prompts.py)).
 4. **Métricas objetivas** vêm de tools determinísticas (AST, radon, ruff,
@@ -317,8 +318,7 @@ Onde fica o conhecimento que orienta os agentes a acertarem?
 
 O dataset apenas mede a aderência dos agentes a essas fontes. Esse desenho é
 proposital: o resultado da avaliação aponta **onde melhorar** (prompt,
-threshold, conteúdo do `.md`, escopo do `pattern_registry`) sem precisar de
-um loop de treino.
+threshold, conteúdo de uma `SKILL.md`) sem precisar de um loop de treino.
 
 ---
 

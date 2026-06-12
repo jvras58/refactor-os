@@ -23,7 +23,7 @@ Detector ──► Recommender ──► Critic ──► (aprovado) ──► r
 ```
 
 - **Detector Agent**: AST + radon → identifica o smell e linhas afetadas (`SmellDetection`).
-- **Recommender Agent**: consulta o registro estrito de patterns + KnowledgeBase (PgVector) → propõe `RefactoringProposal`.
+- **Recommender Agent**: carrega o `SKILL.md` do pattern obrigatório via Agno Skills → propõe `RefactoringProposal`.
 - **Critic Agent (Reflection)**: valida sintaxe (ruff/ast) + diff + preservação de lógica (`ReflectionReview`).
 
 Comunicação **Spec-Driven** via Pydantic em `app/core/schemas.py`.
@@ -33,13 +33,12 @@ Comunicação **Spec-Driven** via Pydantic em `app/core/schemas.py`.
 ```
 app/
 ├── api/                           # FastAPI: /detect /refactor /evaluate/(detector|refactor|critic|all)
-├── agents/                        # Detector, Recommender, Critic
-├── core/                          # config, prompts, schemas (Pydantic)
-├── db/session.py                  # PostgresDb compartilhado (Agno — só sessões/traces)
+├── agents/                        # Detector, Recommender, Critic (stateless — sem banco)
+├── core/                          # config, llm, prompts, schemas (Pydantic)
 ├── skills/                        # 5 SKILL.md (1 por pattern) — substituem o antigo RAG via PgVector
 ├── services/                      # refactor / evaluation / quality_checks
 ├── tools/                         # ast, diff, syntax
-├── utils/                         # retry helper (backoff em 429 do Mistral)
+├── utils/                         # retry helper (backoff 429 + retry de schema)
 ├── templates/                     # dashboard.html (Jinja2)
 └── main.py                        # FastAPI ASGI entry point
 dataset/
@@ -67,7 +66,8 @@ chave de API gratuita do Mistral:
 > `app/skills/` sob demanda via Agno Skills — **não há embeddings nem
 > RAG** (decisão documentada em
 > [`docs/agentic_patterns.md` §16](docs/agentic_patterns.md#16--skills-substituem-rag-decisão-arquitetural)).
-> Logo, **não é necessário** token HuggingFace nem `pgvector`.
+> Logo, **não é necessário** token HuggingFace, `pgvector` nem Postgres — os
+> agentes são stateless por chamada (Agno aceita `db=None`).
 
 ```bash
 cp .env.example .env
@@ -84,7 +84,6 @@ ajuste `LLM_MODEL_ID` no `.env`.
 
 ### Local
 ```bash
-docker compose up -d postgres        # sobe Postgres na porta 5532 (sessões/traces do Agno)
 uv run python -m uvicorn app.main:app --reload
 
 # se quiser usar o launcher uvicorn direto, recrie a venv para regenerar os binários
@@ -93,9 +92,9 @@ uv sync --extra dev
 uv run uvicorn app.main:app --reload
 ```
 
-### Docker (stack completa)
+### Docker
 ```bash
-docker compose up --build
+docker compose up --build   # sobe só o app — não há mais serviço de banco
 ```
 
 ## Endpoints
@@ -221,7 +220,6 @@ uv run pytest tests/test_evaluation_metrics.py -v
 #   test_critic_evaluates_submitted_samples           → modo ad-hoc do Revisor
 
 # 2. Smoke test ao vivo (precisa de MISTRAL_API_KEY no .env)
-docker compose up -d postgres
 uv run uvicorn app.main:app --reload
 
 # em outro terminal — payload sem rótulo deve falhar com 422

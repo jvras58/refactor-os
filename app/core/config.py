@@ -27,11 +27,6 @@ class Settings(BaseSettings):
     llm_model_id: str = Field(default="mistral-medium-latest")
     llm_temperature: float = Field(default=0.2, ge=0.0, le=1.0)
 
-    db_url: str = Field(
-        default="postgresql+psycopg://ai:ai@localhost:5532/ai",
-        description="PostgreSQL connection string used by Agno for sessions/traces.",
-    )
-
     skills_dir: Path = Field(default=PROJECT_ROOT / "app" / "skills")
     dataset_dir: Path = Field(default=PROJECT_ROOT / "dataset")
 

@@ -25,9 +25,14 @@ um schema Pydantic validado (Spec-Driven).
 | **Critic** (Revisor / Reflection) | [critic_agent.py:15](../app/agents/critic_agent.py#L15) | tools: `syntax_checker_tool`, `diff_generator_tool` | [`ReflectionReview`](../app/core/schemas.py#L51) |
 
 Os três compartilham o mesmo `MistralChat` (`LLM_MODEL_ID`, default
-`mistral-medium-latest`) e a mesma `PostgresDb` (sessões/traces) via
-[get_db()](../app/db/session.py). O que muda é o **prompt**
-([app/core/prompts.py](../app/core/prompts.py)), as **tools** e o
+`mistral-medium-latest`) construído pelo
+[`build_main_model()`](../app/core/llm.py), e cada um também recebe um
+`parser_model` separado pela
+[`build_parser_model()`](../app/core/llm.py) (mesmo modelo, temperatura 0)
+para extrair o `output_schema` sem confundir tool/skill-calling com JSON-mode
+forçado. Nenhum agente recebe `db=` — são **stateless por chamada**, sem
+sessão/memória persistida. O que muda entre eles é o **prompt**
+([app/core/prompts.py](../app/core/prompts.py)), as **tools/skills** e o
 **`output_schema`**.
 
 ### 1.1 Detector — como usa suas tools
@@ -189,8 +194,9 @@ exato de iterações e (iii) métricas isoladas por estágio.
 
 `RefactorService.__init__` instancia os três agentes uma única vez
 ([refactor_service.py:41](../app/services/refactor_service.py#L41)). Como
-`get_settings()` e `get_db()` são `lru_cache`, todos compartilham a mesma
-sessão Postgres.
+`get_settings()` é `lru_cache`, todos os agentes compartilham a mesma
+configuração. Não há `db=` nem sessão persistida — o pipeline é stateless por
+requisição.
 
 ### 3.2 Três métodos por estágio
 

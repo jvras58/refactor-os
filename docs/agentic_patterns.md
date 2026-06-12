@@ -183,9 +183,12 @@ nome resolvido deterministicamente pelo serviço.
 3. **Reprodutibilidade acadêmica.** Pgvector + HF Inference API tem chance
    não-zero de variação entre runs (modelo de embedding, ranking). Skills são
    100% reproduzíveis — basta `git checkout`.
-4. **Remove dependências.** Saíram `huggingface-hub`, `pgvector`, e a
-   exigência de token HF no `.env`. O Postgres continua só pra sessões/traces
-   do Agno (PostgresDb, não PgVector).
+4. **Remove dependências.** Saíram `huggingface-hub`, `pgvector` e a
+   exigência de token HF no `.env`. Em seguida, em um segundo passo (commit
+   à parte), também caiu o `PostgresDb` — os agentes são stateless por
+   chamada, então `db=` no `Agent(...)` ficou `None`, e `psycopg` +
+   `sqlalchemy` saíram do `pyproject.toml`. A stack final só precisa de
+   `MISTRAL_API_KEY`.
 
 **O que foi apagado:**
 - `app/knowledge/` (diretório inteiro: `provider.py` + `patterns/*.md`)

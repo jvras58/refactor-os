@@ -1,0 +1,22 @@
+{
+   "date":"2026-06-16",
+   "note":"Run com parser_model + skills + arun_typed. Mistral free-tier 429s afetaram 6/10 Recommender e 16/20 Critic.",
+   "detector":{
+      "F1":1.0,
+      "complete":20
+   },
+   "recommender":{
+      "completed":4,
+      "of":10,
+      "on_completed":{
+         "pattern":1.0,
+         "syntax":1.0,
+         "logic":1.0
+      }
+   },
+   "critic":{
+      "completed":4,
+      "of":20,
+      "all_TN":true
+   }
+}

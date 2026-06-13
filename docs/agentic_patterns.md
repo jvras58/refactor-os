@@ -15,7 +15,7 @@ Estes padrões já estão presentes na arquitetura desde a concepção do projet
 | 4 | **Reflection** | Loop Generator-Critic com `MAX_REFLECTION_ITERATIONS` em `RefactorService.run()` |
 | 5 | **Tool Use (Function Calling)** | `ast_analyzer_tool`, `diff_generator_tool`, `syntax_checker_tool` em `app/tools/` |
 | 7 | **Multi-Agent Collaboration** | Três agentes especializados (`DetectorAgent`, `RecommenderAgent`, `CriticAgent`) com papéis exclusivos |
-| 14 | **Skills + RAG (lado a lado)** | `agno.skills.Skills(loaders=[LocalSkills("app/skills")])` injetado no Recommender (uma `SKILL.md` por pattern via `get_skill_instructions`) **e** `KnowledgeTools(get_pattern_knowledge())` sobre PgVector. Ver §15 e §16. |
+| 14 | **Skills + RAG (lado a lado)** | `agno.skills.Skills(loaders=[LocalSkills("app/skills")])` injetado no Recommender (estrutura canônica via `get_skill_instructions`) **e** `KnowledgeTools(get_solution_knowledge())` sobre PgVector (exemplos via `search_knowledge`). Ver §15 e §16. |
 | 19 | **Evaluation and Monitoring** | Endpoints `/evaluate/{detector,refactor,critic,all}` — métricas independentes por agente contra `dataset/ground_truth.json` e `dataset/critic_truth.json` (ou amostras enviadas ad-hoc) |
 
 ---
@@ -176,24 +176,29 @@ O campo `error: str | None` foi adicionado a `RefactorResult` para surfaçar a m
 
 | Camada | Papel | Onde |
 |---|---|---|
-| **Skills** | Playbook procedural ("como aplicar o pattern X"), lookup por nome | `app/skills/*/SKILL.md` |
-| **RAG (PgVector)** | Recuperação semântica de exemplos de referência | `app/knowledge/patterns/*.md` + `app/knowledge/solutions/*.md` |
+| **Skills** | Playbook procedural ("como aplicar o pattern X") + 1 exemplo canônico, lookup por nome | `app/skills/*/SKILL.md` |
+| **RAG (PgVector)** | Recuperação semântica de exemplos problema→refatoração análogos | `app/knowledge/solutions/*.md` |
+
+A estrutura canônica de cada pattern fica **só** nas Skills; o RAG indexa **só** o
+corpus de soluções (sem duplicar a estrutura nem o registry — que foi removido).
 
 **Componentes:**
 - `app/db/session.py` + `db=get_db()` nos 3 agentes (Postgres como `contents_db`).
-- `app/knowledge/provider.py`: `get_pattern_knowledge()` (PgVector + HuggingFace
+- `app/knowledge/provider.py`: `get_solution_knowledge()` (PgVector + HuggingFace
   embeddings, `BAAI/bge-small-en-v1.5`, 384 dims) e `sync_knowledge()`.
-- **Corpus novo** `app/knowledge/solutions/*.md` — 5 exemplos autorais problema→solução,
+- **Corpus** `app/knowledge/solutions/*.md` — 5 exemplos autorais problema→solução,
   **deliberadamente distintos de `dataset/`** para não vazar ground truth na avaliação
   do Critic (que consome `dataset/solutions/`).
+- O Recommender consulta o corpus via `search_knowledge` (instruído no prompt); as Skills
+  seguem via `get_skill_instructions`.
 - Endpoint `POST /api/v1/knowledge/sync` ([knowledge_controller.py](../app/api/controllers/knowledge_controller.py)):
-  upsert idempotente dos dois corpora no índice pgvector.
+  upsert idempotente do corpus no índice pgvector.
 - Deps de runtime: `sqlalchemy`, `psycopg[binary]`, `pgvector`, `huggingface-hub`.
 
 **Pré-requisitos para o RAG funcionar:** Postgres no ar (`docker compose up -d postgres`),
 `HUGGINGFACE_API_KEY` no `.env`, e uma chamada a `/knowledge/sync` para popular a tabela
-(a tabela nasce vazia). Validado: `sync` indexa `{patterns: 5, solutions: 5}` e o retrieval
-retorna o doc correto por similaridade.
+(a tabela nasce vazia). Validado: `sync` indexa `{solutions: 5}` e o retrieval retorna o
+doc correto por similaridade.
 
 **Tradeoff assumido:** custo de infra (Postgres + token HF + passo de sync) em troca de um
 corpus de soluções recuperável semanticamente; o playbook fixo do pattern segue nas Skills.

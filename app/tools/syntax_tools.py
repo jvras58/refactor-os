@@ -41,7 +41,7 @@ def check_syntax(source_code: str) -> dict[str, Any]:
             "lint": {"available": False},
         }
 
-    with tempfile.NamedTemporaryFile("w", suffix=".py", delete=False) as fh:
+    with tempfile.NamedTemporaryFile("w", suffix=".py", delete=False, encoding="utf-8") as fh:
         fh.write(source_code)
         tmp_path = Path(fh.name)
     try:

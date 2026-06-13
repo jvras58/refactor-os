@@ -21,7 +21,7 @@ def build_detector_agent() -> Agent:
         # TODO: remover ast_analyzer_tool. Com a matriz heurística (app/tools/heuristic_engine.py)
         # injetada no prompt por RefactorService.detect(), este tool reparseia o mesmo AST que o
         # prior já analisou — ficou redundante. Antes de remover, ajustar DETECTOR_INSTRUCTIONS
-        # (hoje exige "SEMPRE chame ast_analyzer_tool"). Ver docs/agentic_patterns.md §19.
+        # (hoje exige "SEMPRE chame ast_analyzer_tool"). Ver docs/agentic_patterns.md §17.
         tools=[ast_analyzer_tool],
         instructions=DETECTOR_INSTRUCTIONS,
         output_schema=SmellDetection,

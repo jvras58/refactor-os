@@ -84,11 +84,13 @@ A função `service.propose()` **resolve deterministicamente** o pattern via
 o injeta no prompt como "pattern obrigatório" + "skill obrigatório" — o LLM
 não escolhe o pattern; ele só carrega o skill correspondente e implementa.
 
-> **Antes:** o Recommender usava `KnowledgeTools(get_pattern_knowledge())` com
-> PgVector + HuggingFace embeddings para fazer retrieval semântico dos `.md` de
-> patterns. **Agora:** zero embeddings, lookup por nome, conteúdo do skill
-> carregado sob demanda. Justificativa completa da migração em
-> [`docs/agentic_patterns.md`](agentic_patterns.md#16--skills-substituem-rag-decisão-arquitetural).
+> **Skills + RAG (lado a lado):** o Recommender carrega o playbook do pattern via
+> Skill (`get_skill_instructions`, lookup por nome) **e** recupera exemplos de
+> referência via `KnowledgeTools(get_pattern_knowledge())` sobre PgVector + HuggingFace
+> embeddings (corpus `app/knowledge/patterns/` + `app/knowledge/solutions/`). O RAG foi
+> removido (§16) e depois reintroduzido — histórico e justificativa em
+> [`docs/agentic_patterns.md`](agentic_patterns.md#18--rag-reintroduzido--corpus-de-soluções-reversão-de-1617).
+> A tabela pgvector precisa ser populada via `POST /api/v1/knowledge/sync`.
 
 ### 1.3 Critic — como usa suas tools
 

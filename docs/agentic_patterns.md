@@ -15,8 +15,14 @@ Estes padrões já estão presentes na arquitetura desde a concepção do projet
 | 4 | **Reflection** | Loop Generator-Critic com `MAX_REFLECTION_ITERATIONS` em `RefactorService.run()` |
 | 5 | **Tool Use (Function Calling)** | `ast_analyzer_tool`, `diff_generator_tool`, `syntax_checker_tool` em `app/tools/` |
 | 7 | **Multi-Agent Collaboration** | Três agentes especializados (`DetectorAgent`, `RecommenderAgent`, `CriticAgent`) com papéis exclusivos |
-| 14 | **Skills (substitui RAG)** | `agno.skills.Skills(loaders=[LocalSkills("app/skills")])` injetado no Recommender — uma `SKILL.md` por pattern, carregada sob demanda via `get_skill_instructions`. Substituiu o RAG via PgVector + HuggingFace embeddings. Ver §15 abaixo. |
+| 14 | **Skills + RAG (lado a lado)** | `agno.skills.Skills(loaders=[LocalSkills("app/skills")])` injetado no Recommender (uma `SKILL.md` por pattern via `get_skill_instructions`) **e** `KnowledgeTools(get_pattern_knowledge())` sobre PgVector. Ver §15 e §18 (RAG foi reintroduzido — §16/§17 estão **revertidas**). |
 | 19 | **Evaluation and Monitoring** | Endpoints `/evaluate/{detector,refactor,critic,all}` — métricas independentes por agente contra `dataset/ground_truth.json` e `dataset/critic_truth.json` (ou amostras enviadas ad-hoc) |
+
+> ⚠️ **Estado atual (branch `feat-dataset-matrix-evoluate`):** as decisões §16 (Skills
+> substituem RAG) e §17 (sem Postgres) foram **revertidas**. O RAG via PgVector +
+> Postgres voltou e ganhou um corpus de soluções, e o Detector passou a usar uma
+> **matriz heurística** determinística como prior. Detalhes em §18 e §19 abaixo —
+> §16/§17 ficam preservadas como registro histórico do que foi removido e por quê.
 
 ---
 
@@ -150,7 +156,12 @@ muito maior e infra adicional, fechamos o ciclo "edita skill → roda
 
 ---
 
-### 16 · Skills substituem RAG (decisão arquitetural)
+### 16 · Skills substituem RAG (decisão arquitetural) — ⚠️ REVERTIDA (ver §18)
+
+> **Status:** revertida na branch `feat-dataset-matrix-evoluate`. O RAG via PgVector
+> voltou e agora coexiste com as Skills (Skills para o playbook do pattern; RAG para
+> recuperar exemplos do corpus de soluções). A seção abaixo permanece como registro
+> da motivação original da remoção.
 
 **Antes:** o conhecimento canônico de cada pattern vivia em
 `app/knowledge/patterns/*.md` (5 arquivos) indexados em **PgVector** com
@@ -211,7 +222,12 @@ enxuto.
 
 ---
 
-### 17 · Stateless agents (sem PostgresDb)
+### 17 · Stateless agents (sem PostgresDb) — ⚠️ REVERTIDA (ver §18)
+
+> **Status:** revertida na branch `feat-dataset-matrix-evoluate`. O `PostgresDb`
+> voltou (`app/db/session.py`, `db=get_db()` nos 3 agentes) porque o RAG via PgVector
+> precisa do Postgres e da `contents_db`. A seção abaixo permanece como registro da
+> motivação original da remoção; o "quando reverter" no fim dela foi efetivamente acionado.
 
 **Decisão:** os 3 agentes do pipeline são construídos **sem `db=`**. O Agno
 aceita `Agent(model=..., parser_model=..., tools=..., output_schema=...)`
@@ -282,6 +298,78 @@ O campo `error: str | None` foi adicionado a `RefactorResult` para surfaçar a m
 
 ---
 
+### 18 · RAG reintroduzido + corpus de soluções (reversão de §16/§17)
+
+**Decisão:** na branch `feat-dataset-matrix-evoluate` o RAG via PgVector + Postgres
+voltou e ganhou um segundo corpus. Skills e RAG passam a coexistir com papéis distintos:
+
+| Camada | Papel | Onde |
+|---|---|---|
+| **Skills** | Playbook procedural ("como aplicar o pattern X"), lookup por nome | `app/skills/*/SKILL.md` |
+| **RAG (PgVector)** | Recuperação semântica de exemplos de referência | `app/knowledge/patterns/*.md` + `app/knowledge/solutions/*.md` |
+
+**O que foi (re)adicionado:**
+- `app/db/session.py` + `db=get_db()` nos 3 agentes (Postgres como `contents_db`).
+- `app/knowledge/provider.py`: `get_pattern_knowledge()` (PgVector + HuggingFace
+  embeddings, `BAAI/bge-small-en-v1.5`, 384 dims) e `sync_knowledge()`.
+- **Corpus novo** `app/knowledge/solutions/*.md` — 5 exemplos autorais problema→solução,
+  **deliberadamente distintos de `dataset/`** para não vazar ground truth na avaliação
+  do Critic (que consome `dataset/solutions/`).
+- Endpoint `POST /api/v1/knowledge/sync` ([knowledge_controller.py](../app/api/controllers/knowledge_controller.py)):
+  upsert idempotente dos dois corpora no índice pgvector.
+- Deps de runtime: `sqlalchemy`, `psycopg[binary]`, `pgvector`, `huggingface-hub`.
+
+**Pré-requisitos para o RAG funcionar:** Postgres no ar (`docker compose up -d postgres`),
+`HUGGINGFACE_API_KEY` no `.env`, e uma chamada a `/knowledge/sync` para popular a tabela
+(a tabela nasce vazia). Validado: `sync` indexa `{patterns: 5, solutions: 5}` e o retrieval
+retorna o doc correto por similaridade.
+
+**Tradeoff assumido:** reintroduz a infra (Postgres + token HF + passo de sync) que §16/§17
+haviam removido em nome da reprodutibilidade. A justificativa é o corpus de soluções
+recuperável semanticamente; o playbook fixo do pattern segue nas Skills.
+
+**Arquivos:** `app/db/session.py`, `app/knowledge/provider.py`,
+`app/knowledge/solutions/*.md`, `app/api/controllers/knowledge_controller.py`,
+`app/api/routes.py`, `app/core/config.py`, `compose.yml`, `pyproject.toml`, `.env.example`.
+
+---
+
+### 19 · Matriz heurística como prior determinístico do Detector
+
+**Problema resolvido:** o Detector julgava o smell a partir de métricas cruas devolvidas
+por `ast_analyzer_tool`, deixando toda a classificação a cargo do LLM (probabilístico).
+
+**Implementação:** [`app/tools/heuristic_engine.py`](../app/tools/heuristic_engine.py) —
+uma matriz determinística que parseia o AST e **ranqueia os 5 smells do escopo** por sinais
+estruturais explícitos:
+
+| Smell | Sinal heurístico |
+|---|---|
+| Complex/Long Switch | ramos de `if/elif` ou `match/case` ≥ 3 |
+| Long Parameter List | função com ≥ 5 parâmetros |
+| God Class | classe com > 20 membros (métodos + atributos `self.`) |
+| Tight Coupling | colaborador concreto instanciado dentro da classe (`self.x = Mod.Foo(...)`) |
+| Duplicated Code | mesmo método substancial reimplementado em ≥ 2 classes irmãs |
+
+`RefactorService.detect()` calcula `score_smells()` **fora do Agno** e injeta o resultado
+ranqueado no prompt como "Prior da matriz heurística". O LLM **confirma ou refuta** o
+candidato de maior score e produz o `reasoning` explicável — o prior não decide sozinho
+(decisão "prior + LLM confirma", não "Detector 100% determinístico").
+
+**Resultado:** 10/10 de type-accuracy e 0 falsos positivos sobre o dataset rotulado
+(20 arquivos), travado em [`tests/test_heuristic_engine.py`](../tests/test_heuristic_engine.py).
+
+> **TODO (futuro):** remover `ast_analyzer_tool` do Detector. Com o prior heurístico
+> injetado no prompt, o tool ficou redundante — ele reparseia o mesmo AST que a matriz
+> já analisou. Antes de remover: confirmar que nenhum critério de avaliação depende do
+> tool ser chamado e ajustar `DETECTOR_INSTRUCTIONS` ([prompts.py](../app/core/prompts.py))
+> que hoje ainda manda "SEMPRE chame `ast_analyzer_tool`".
+
+**Arquivos:** `app/tools/heuristic_engine.py`, `app/services/refactor_service.py`,
+`app/core/prompts.py`, `tests/test_heuristic_engine.py`.
+
+---
+
 ## Patterns Descartados (e por quê)
 
 | Pattern | Motivo do descarte |
@@ -289,7 +377,7 @@ O campo `error: str | None` foi adicionado a `RefactorResult` para surfaçar a m
 | **2 · Routing** | Só há 5 smells e o Detector já classifica — um router seria duplicação. |
 | **3 · Parallelization** | Fluxo é sequencial por dependência de dados (saída de cada estágio é input do próximo). |
 | **6 · Planning** | Escopo fixo (5 patterns, 1 refactor por arquivo). Não há plano multi-etapa a formular. |
-| **8 · Memory Management** | Pipeline stateless por arquivo. Conhecimento de patterns é injetado via Agno Skills (lazy-load por nome), não há retrieval/memória de longo prazo. |
+| **8 · Memory Management** | Sem memória de sessão/conversa entre requests. Há **retrieval** de conhecimento (Skills por nome + RAG semântico via PgVector — ver §18), mas nenhuma memória de longo prazo do usuário ou histórico de turnos. |
 | **9 · Learning and Adaptation** | Fora do escopo acadêmico (sem RL/fine-tuning). |
 | **10 · MCP** | Overhead de infraestrutura sem ganho — todas as tools são internas ao projeto. |
 | **13 · HITL** | Os endpoints `/evaluate/*` contra ground truth substituem supervisão humana para fins acadêmicos. |

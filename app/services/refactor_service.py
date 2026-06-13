@@ -27,6 +27,7 @@ from app.core.schemas import (
     ReflectionReview,
     SmellDetection,
 )
+from app.tools.heuristic_engine import format_prior, score_smells
 from app.utils.retry import arun_typed
 
 logger = logging.getLogger(__name__)
@@ -56,9 +57,11 @@ class RefactorService:
         self._critic = build_critic_agent()
 
     async def detect(self, source_code: str) -> SmellDetection:
+        prior = format_prior(score_smells(source_code))
         prompt = (
             "Analise o seguinte código-fonte e retorne um SmellDetection.\n"
             "Use obrigatoriamente `ast_analyzer_tool` antes de concluir.\n\n"
+            f"--- Prior da matriz heurística ---\n{prior}\n--- fim do prior ---\n\n"
             f"```python\n{source_code}\n```"
         )
         return await arun_typed(

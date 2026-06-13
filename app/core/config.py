@@ -39,7 +39,6 @@ class Settings(BaseSettings):
 
     knowledge_table: str = Field(default="design_patterns_kb")
 
-    patterns_dir: Path = Field(default=PROJECT_ROOT / "app" / "knowledge" / "patterns")
     solutions_dir: Path = Field(
         default=PROJECT_ROOT / "app" / "knowledge" / "solutions",
         description="Corpus autoral de soluções problema→refatoração, indexado no pgvector.",

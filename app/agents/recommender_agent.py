@@ -11,8 +11,7 @@ from app.core.llm import build_main_model, build_parser_model
 from app.core.prompts import RECOMMENDER_INSTRUCTIONS
 from app.core.schemas import RefactoringProposal
 from app.db.session import get_db
-from app.knowledge.provider import get_pattern_knowledge
-from app.tools.pattern_registry import design_pattern_reference_tool
+from app.knowledge.provider import get_solution_knowledge
 
 SKILLS_DIR = Path(__file__).resolve().parent.parent / "skills"
 
@@ -26,8 +25,12 @@ def build_recommender_agent() -> Agent:
         parser_model=build_parser_model(),
         db=get_db(),
         tools=[
-            design_pattern_reference_tool,
-            KnowledgeTools(knowledge=get_pattern_knowledge()),
+            # Recupera exemplos problema→refatoração do corpus de soluções (search_knowledge).
+            KnowledgeTools(
+                knowledge=get_solution_knowledge(),
+                enable_think=False,
+                enable_analyze=False,
+            ),
         ],
         skills=Skills(loaders=[LocalSkills(str(SKILLS_DIR))]),
         instructions=RECOMMENDER_INSTRUCTIONS,

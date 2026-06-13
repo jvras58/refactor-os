@@ -38,8 +38,12 @@ class Settings(BaseSettings):
     )
 
     knowledge_table: str = Field(default="design_patterns_kb")
-    
+
     patterns_dir: Path = Field(default=PROJECT_ROOT / "app" / "knowledge" / "patterns")
+    solutions_dir: Path = Field(
+        default=PROJECT_ROOT / "app" / "knowledge" / "solutions",
+        description="Corpus autoral de soluções problema→refatoração, indexado no pgvector.",
+    )
     dataset_dir: Path = Field(default=PROJECT_ROOT / "dataset")
 
     max_reflection_iterations: int = Field(default=3, ge=1, le=10)

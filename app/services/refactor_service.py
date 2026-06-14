@@ -113,7 +113,7 @@ class RefactorService:
             "Use obrigatoriamente:\n"
             "1. `syntax_checker_tool` no código refatorado\n"
             "2. `diff_generator_tool` comparando original e refatorado\n\n"
-            f"--- {logic_prior} ---\n\n"
+            f"{logic_prior}\n\n"
             f"Código original:\n```python\n{source_code}\n```\n\n"
             f"Código refatorado:\n```python\n{proposal.refactored_code}\n```\n\n"
             "Avalie os 5 critérios das instruções e retorne ReflectionReview. "

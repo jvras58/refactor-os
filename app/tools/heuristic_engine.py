@@ -1,19 +1,9 @@
-"""Heuristic matrix that turns AST metrics into ranked probable bad smells.
+"""Heuristic matrix that ranks the 5 in-scope bad smells from AST signals.
 
-This is the deterministic *prior* of the Detector stage: instead of letting the
-LLM judge raw metrics, we score each of the 5 in-scope smells from explicit
-AST signals and hand the ranked candidates to the agent as evidence. The LLM
-then confirms (or overrides) and produces the explainable output — see
-``RefactorService.detect``.
-
-Design notes:
-- Pure and side-effect free: ``score_smells(source_code)`` is fully reproducible.
-- Covers the 5 project smells. Complex Switch, Long Parameter List and God Class
-  are read straight from structural metrics; Tight Coupling and Duplicated Code
-  use lightweight AST checks (concrete instantiation inside methods / repeated
-  normalized blocks) since ``ast_tools`` does not expose those signals.
-- Scores are in [0, 1] and only meant to *rank* candidates, not to be calibrated
-  probabilities. The Detector LLM remains the final judge.
+The deterministic *prior* of the Detector: ``score_smells`` scores each smell
+from explicit structural signals and the Detector LLM confirms/overrides it (see
+``RefactorService.detect``). Scores in [0, 1] only rank candidates — they are not
+calibrated probabilities.
 """
 from __future__ import annotations
 

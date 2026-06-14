@@ -1,15 +1,9 @@
-"""PgVector-backed knowledge base of refactoring solution examples.
+"""PgVector knowledge base of refactoring solution examples.
 
-Uses HuggingfaceCustomEmbedder (BAAI/bge-small-en-v1.5, 384 dims) via the HF
-Inference API gratuita — sem compilação Rust, sem provedor pago.
-Requer HUGGINGFACE_API_KEY no .env (token gratuito em huggingface.co/settings/tokens).
-
-Indexa apenas ``app/knowledge/solutions/*.md`` — exemplos autorais problema→
-refatoração, distintos do dataset de avaliação (sem vazar ground truth). A
-estrutura canônica de cada pattern (intent/regras) vive nas Agno Skills
-(``app/skills/``), então não é reindexada aqui para evitar duplicação.
-
-A tabela só fica populada após ``sync_knowledge`` (endpoint ``POST /knowledge/sync``).
+Indexes ``app/knowledge/solutions/*.md`` (HuggingFace embeddings via the free
+Inference API; needs ``HUGGINGFACE_API_KEY``). Pattern structure lives in the
+Agno Skills, so only the solution corpus is indexed here. The table is empty
+until ``sync_knowledge`` (``POST /knowledge/sync``) runs.
 """
 from __future__ import annotations
 

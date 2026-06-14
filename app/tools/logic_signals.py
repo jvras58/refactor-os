@@ -1,28 +1,39 @@
-"""Deterministic logic-preservation signals between original and refactored code.
+"""Logic-preservation signals between original and refactored code.
 
-This is the Critic's counterpart to the Detector's heuristic matrix
-(``app/tools/heuristic_engine.py``): a pure, LLM-free analysis that compares the
-**behavioural tokens** of the original code against the refactored one and
-surfaces what *disappeared*. It is injected into the Critic prompt as evidence
-for "Critério 2 — Lógica preservada"; the Critic still decides.
-
-Why behavioural tokens (and not a textual diff): a legitimate refactor reshapes
-structure (an ``if/elif`` chain becomes a dict of strategies, a god class is
-split, etc.) but **keeps the same constants, raised exceptions and calls** —
-just reorganised. So a value that vanishes entirely is a strong, low-noise
-signal that a branch/rule was dropped (e.g. a missing ``18.0``/``"JP"`` means a
-shipping rule was lost). Docstrings are ignored so comments/headers don't create
-false differences.
+The Critic's deterministic prior (counterpart to the Detector's heuristic
+matrix): it reports the literals, raised exceptions and calls that existed in
+the original but vanished after the refactor — strong evidence that a rule or
+branch was dropped. Structural refactors keep these tokens (an if/elif chain
+becomes a dict of strategies, a god class is split), so the signal is low-noise.
+Docstrings are ignored so headers/comments don't count as differences.
 """
 from __future__ import annotations
 
 import ast
 from dataclasses import dataclass, field
 
+_COUNTED: dict[type[ast.AST], str] = {
+    ast.If: "if",
+    ast.For: "for",
+    ast.AsyncFor: "for",
+    ast.While: "while",
+    ast.Try: "try",
+    ast.Return: "return",
+    ast.Raise: "raise",
+}
+
+
+@dataclass(frozen=True)
+class _Tokens:
+    literals: set[str]
+    raises: set[str]
+    calls: set[str]
+    counts: dict[str, int]
+
 
 @dataclass
 class LogicReport:
-    """What is present in the original but missing in the refactored code."""
+    """What the original code had that the refactored code no longer has."""
 
     lost_literals: list[str] = field(default_factory=list)
     lost_raises: list[str] = field(default_factory=list)
@@ -33,134 +44,101 @@ class LogicReport:
 
     @property
     def has_strong_signal(self) -> bool:
-        """A lost literal or lost raised exception strongly suggests altered logic."""
+        """A lost literal or raised exception strongly suggests altered logic."""
         return bool(self.lost_literals or self.lost_raises)
 
 
-def _is_docstring(node: ast.AST, parent_body_first: ast.AST | None) -> bool:
-    return node is parent_body_first and isinstance(node, ast.Expr) and isinstance(
-        getattr(node, "value", None), ast.Constant
-    ) and isinstance(node.value.value, str)
+def _docstring_ids(tree: ast.AST) -> set[int]:
+    """Object ids of Constant nodes that are module/class/function docstrings."""
+    ids: set[int] = set()
+    for node in ast.walk(tree):
+        body = getattr(node, "body", None)
+        if isinstance(body, list) and body:
+            first = body[0]
+            if isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant) \
+                    and isinstance(first.value.value, str):
+                ids.add(id(first.value))
+    return ids
 
 
-def _collect(tree: ast.AST) -> dict[str, object]:
+def _name_of(node: ast.expr | None) -> str | None:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return node.attr
+    return None
+
+
+def _collect(tree: ast.AST) -> _Tokens:
+    docstrings = _docstring_ids(tree)
     literals: set[str] = set()
     raises: set[str] = set()
     calls: set[str] = set()
-    counts = {"if": 0, "for": 0, "while": 0, "try": 0, "return": 0, "raise": 0}
-
-    # Identify docstring nodes (module/class/function first statement) to skip.
-    docstrings: set[int] = set()
-    for node in ast.walk(tree):
-        body = getattr(node, "body", None)
-        if isinstance(body, list) and body and _is_docstring(body[0], body[0]):
-            docstrings.add(id(body[0].value))
+    counts = dict.fromkeys(("if", "for", "while", "try", "return", "raise"), 0)
 
     for node in ast.walk(tree):
-        if isinstance(node, ast.Constant):
-            if id(node) in docstrings:
-                continue
-            if isinstance(node.value, bool) or node.value is None:
-                continue
-            if isinstance(node.value, (int, float, complex, str, bytes)):
+        if isinstance(node, ast.Constant) and id(node) not in docstrings:
+            if isinstance(node.value, (int, float, complex, str, bytes)) and not isinstance(node.value, bool):
                 literals.add(repr(node.value))
         elif isinstance(node, ast.Raise) and node.exc is not None:
             exc = node.exc.func if isinstance(node.exc, ast.Call) else node.exc
-            name = exc.id if isinstance(exc, ast.Name) else (
-                exc.attr if isinstance(exc, ast.Attribute) else None
-            )
-            if name:
+            if name := _name_of(exc):
                 raises.add(name)
         elif isinstance(node, ast.Call):
-            func = node.func
-            name = func.id if isinstance(func, ast.Name) else (
-                func.attr if isinstance(func, ast.Attribute) else None
-            )
-            if name:
+            if name := _name_of(node.func):
                 calls.add(name)
 
-        if isinstance(node, ast.If):
-            counts["if"] += 1
-        elif isinstance(node, (ast.For, ast.AsyncFor)):
-            counts["for"] += 1
-        elif isinstance(node, ast.While):
-            counts["while"] += 1
-        elif isinstance(node, ast.Try):
-            counts["try"] += 1
-        elif isinstance(node, ast.Return):
-            counts["return"] += 1
-        elif isinstance(node, ast.Raise):
-            counts["raise"] += 1
+        if key := _COUNTED.get(type(node)):
+            counts[key] += 1
 
-    # Calls that merely construct a raised exception are already covered by `raises`.
-    calls -= raises
-    return {"literals": literals, "raises": raises, "calls": calls, "counts": counts}
+    return _Tokens(literals, raises, calls - raises, counts)
 
 
 def analyze_logic_preservation(original: str, refactored: str) -> LogicReport:
-    """Compare behavioural tokens; report what the refactor dropped."""
+    """Compare behavioural tokens and report what the refactor dropped."""
     try:
-        original_tree = ast.parse(original)
+        before = _collect(ast.parse(original))
     except SyntaxError:
-        return LogicReport()  # nothing to compare against
+        return LogicReport()
     try:
-        refactored_tree = ast.parse(refactored)
+        after = _collect(ast.parse(refactored))
     except SyntaxError as exc:
         return LogicReport(refactored_parse_error=f"{exc.msg} (linha {exc.lineno})")
 
-    orig = _collect(original_tree)
-    refac = _collect(refactored_tree)
-
     return LogicReport(
-        lost_literals=sorted(orig["literals"] - refac["literals"]),  # type: ignore[operator]
-        lost_raises=sorted(orig["raises"] - refac["raises"]),  # type: ignore[operator]
-        lost_calls=sorted(orig["calls"] - refac["calls"]),  # type: ignore[operator]
-        original_counts=orig["counts"],  # type: ignore[arg-type]
-        refactored_counts=refac["counts"],  # type: ignore[arg-type]
+        lost_literals=sorted(before.literals - after.literals),
+        lost_raises=sorted(before.raises - after.raises),
+        lost_calls=sorted(before.calls - after.calls),
+        original_counts=before.counts,
+        refactored_counts=after.counts,
     )
 
 
 def format_logic_prior(report: LogicReport) -> str:
-    """Render the report as a prompt block for the Critic."""
+    """Render the report as a prompt block for the Critic (Critério 2)."""
     if report.refactored_parse_error:
         return (
-            "Prior de preservação de lógica: o código refatorado NÃO compila "
-            f"({report.refactored_parse_error}) — Critério 1 (sintaxe) já falha."
+            f"Prior de preservação de lógica: o código refatorado não compila "
+            f"({report.refactored_parse_error}); o Critério 1 já falha."
         )
 
-    lines: list[str] = []
+    items: list[str] = []
     if report.lost_literals:
-        lines.append(
-            f"- Literais presentes no original e AUSENTES no refatorado: {', '.join(report.lost_literals)}. "
-            "Forte indício de que uma regra/ramo/valor foi descartado — verifique."
+        items.append(
+            f"Literais que sumiram do refatorado: {', '.join(report.lost_literals)} "
+            "— forte indício de regra/ramo descartado."
         )
     if report.lost_raises:
-        lines.append(
-            f"- Exceções levantadas no original e ausentes no refatorado: {', '.join(report.lost_raises)}. "
-            "Possível perda de tratamento de erro."
-        )
+        items.append(f"Exceções que deixaram de ser levantadas: {', '.join(report.lost_raises)}.")
     if report.lost_calls:
-        lines.append(
-            f"- Chamadas presentes no original e ausentes no refatorado: {', '.join(report.lost_calls)} (sinal fraco — pode ser legítimo)."
-        )
+        items.append(f"Chamadas ausentes no refatorado: {', '.join(report.lost_calls)} (sinal fraco).")
 
-    if not lines:
+    if not items:
         return (
-            "Prior de preservação de lógica: nenhuma divergência estrutural detectada "
-            "(literais, exceções e chamadas do original preservados no refatorado). "
-            "Confirme a equivalência funcional via diff."
+            "Prior de preservação de lógica: nenhuma divergência detectada — literais, "
+            "exceções e chamadas do original seguem presentes. Confirme a equivalência via diff."
         )
-
-    deltas = (
-        f"Contagens original→refatorado: ramos if {report.original_counts.get('if')}→"
-        f"{report.refactored_counts.get('if')}, returns {report.original_counts.get('return')}→"
-        f"{report.refactored_counts.get('return')}, raises {report.original_counts.get('raise')}→"
-        f"{report.refactored_counts.get('raise')}."
-    )
     return (
-        "Prior de preservação de lógica (análise estática determinística):\n"
-        + "\n".join(lines)
-        + f"\n{deltas}\n"
-        "Use como evidência no Critério 2; o prior NÃO decide — você pode justificar "
-        "uma divergência se houver equivalente funcional no código."
+        "Prior de preservação de lógica (use como evidência no Critério 2; "
+        "só aceite divergência com equivalente funcional explícito):\n- " + "\n- ".join(items)
     )

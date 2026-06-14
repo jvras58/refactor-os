@@ -58,7 +58,6 @@ não por um LLM-orquestrador. Cada agente tem papel exclusivo, contrato de entra
 tipado (Pydantic) e ferramentas determinísticas.
 
 ```mermaid
-%%{init: {'theme':'base','themeVariables':{'fontSize':'15px','lineColor':'#94a3b8','clusterBkg':'#f8fafc','clusterBorder':'#cbd5e1'}}}%%
 flowchart TD
     U([📥 Código Python do usuário]):::io --> H
 

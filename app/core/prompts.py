@@ -95,7 +95,11 @@ Em seguida, avalie os 5 critérios abaixo usando os resultados das tools:
 
 **Critério 2 — Lógica preservada**
 Nenhuma branch lógica do original (if/elif/else, match/case, try/except) foi removida sem
-equivalente funcional. Verifique via `diff_generator_tool`.
+equivalente funcional. Verifique via `diff_generator_tool` **e** use o **Prior de preservação
+de lógica** fornecido no prompt: ele lista literais/exceções/chamadas que existiam no original
+e sumiram no refatorado (forte indício de regra/ramo descartado, ex.: um valor de cálculo ou
+um `raise` que desapareceu). Trate como evidência forte; só aprove uma divergência se houver
+equivalente funcional explícito no código.
 
 **Critério 3 — Pattern correto**
 O `applied_pattern` declarado bate exatamente com o padrão esperado para o smell detectado.

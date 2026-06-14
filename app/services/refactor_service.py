@@ -28,6 +28,7 @@ from app.core.schemas import (
     SmellDetection,
 )
 from app.tools.heuristic_engine import format_prior, score_smells
+from app.tools.logic_signals import analyze_logic_preservation, format_logic_prior
 from app.utils.retry import arun_typed
 
 logger = logging.getLogger(__name__)
@@ -104,11 +105,15 @@ class RefactorService:
         source_code: str,
         proposal: RefactoringProposal,
     ) -> ReflectionReview:
+        logic_prior = format_logic_prior(
+            analyze_logic_preservation(source_code, proposal.refactored_code)
+        )
         prompt = (
             f"Pattern aplicado: {proposal.applied_pattern.value}\n\n"
             "Use obrigatoriamente:\n"
             "1. `syntax_checker_tool` no código refatorado\n"
             "2. `diff_generator_tool` comparando original e refatorado\n\n"
+            f"--- {logic_prior} ---\n\n"
             f"Código original:\n```python\n{source_code}\n```\n\n"
             f"Código refatorado:\n```python\n{proposal.refactored_code}\n```\n\n"
             "Avalie os 5 critérios das instruções e retorne ReflectionReview. "

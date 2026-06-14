@@ -63,10 +63,15 @@ flowchart TD
     H --> D[🕵️ Detector Agent<br/>confirma o smell + explica]
     D -->|SmellDetection| M{{SMELL_TO_PATTERN<br/>mapeamento fixo}}
     M --> R[🏗️ Recommender Agent<br/>Skills + RAG de soluções]
-    R -->|RefactoringProposal| C[⚖️ Critic Agent<br/>5 critérios objetivos]
+    R -->|RefactoringProposal| L[Prior de preservação de lógica AST<br/>tokens perdidos · determinístico]
+    L --> C[⚖️ Critic Agent<br/>5 critérios objetivos]
     C -->|reprovado: crítica| R
     C -->|aprovado| OUT[Resultado validado]
 ```
+
+> Dois **priors determinísticos** simétricos alimentam os agentes-juízes: a **matriz
+> heurística** (H) dá ao Detector os smells prováveis; o **prior de preservação de lógica**
+> (L) dá ao Critic os tokens que sumiram entre original e refatorado. Em ambos o LLM confirma.
 
 **Três princípios de design:**
 

@@ -246,6 +246,37 @@ candidato de maior score e produz o `reasoning` explicável — o prior não dec
 
 ---
 
+### 18 · Prior de preservação de lógica no Critic
+
+**Problema resolvido:** o Critério 2 do Critic ("lógica preservada") dependia só do
+`diff_generator_tool` + julgamento do LLM. Um ramo/regra silenciosamente descartado na
+refatoração (ex.: um caso do switch que some) podia passar como aprovado.
+
+**Implementação:** [`app/tools/logic_signals.py`](../app/tools/logic_signals.py) — contraparte
+da matriz heurística (§17), agora para o Critic. Compara original × refatorado por **AST** e
+reporta os **tokens comportamentais que desapareceram**:
+
+| Sinal | Significado |
+|---|---|
+| literais perdidos | valor de cálculo / chave de ramo descartado (forte) |
+| exceções perdidas | `raise` que sumiu — tratamento de erro removido (forte) |
+| chamadas perdidas | passo possivelmente removido (fraco) |
+
+`RefactorService.review()` calcula `analyze_logic_preservation()` **fora do Agno** e injeta o
+"Prior de preservação de lógica" no prompt; o Critério 2 das `CRITIC_INSTRUCTIONS` o trata
+como evidência forte. Como refatorações legítimas **reorganizam** a estrutura mas mantêm
+constantes/`raise`/chamadas, o sinal é de baixo ruído — o Critic ainda decide e pode
+justificar uma divergência com equivalente funcional.
+
+**Resultado:** sobre os 20 pares de `critic_truth`, **0 sinais falsos** nas 10 soluções
+corretas e **4/4** dos defeitos de `logic` sinalizados, travado em
+[`tests/test_logic_signals.py`](../tests/test_logic_signals.py).
+
+**Arquivos:** `app/tools/logic_signals.py`, `app/services/refactor_service.py`,
+`app/core/prompts.py`, `tests/test_logic_signals.py`.
+
+---
+
 ## Patterns Descartados (e por quê)
 
 | Pattern | Motivo do descarte |

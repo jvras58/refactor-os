@@ -157,8 +157,9 @@ JSON-mode e tool-calling na mesma chamada.
 **Os 5 critérios:**
 
 1. **Sintaxe válida** — `syntax_checker_tool` (ast + ruff) sem erros.
-2. **Lógica preservada** — nenhum ramo de controle (if/elif, match/case, try/except) do
-   original foi removido sem equivalente — verificado via `diff_generator_tool`.
+2. **Lógica preservada** — nenhum ramo de controle do original foi removido sem equivalente.
+   Além do `diff_generator_tool`, o Critic recebe um **prior determinístico de preservação
+   de lógica** (ver abaixo) que lista os tokens comportamentais que sumiram.
 3. **Pattern correto** — `applied_pattern` bate com o mapeamento obrigatório do smell.
 4. **API pública preservada** — classes/métodos públicos mantidos (ou com wrapper compatível).
 5. **Imports controlados** — sem dependências externas além das necessárias ao pattern.
@@ -167,7 +168,15 @@ JSON-mode e tool-calling na mesma chamada.
   `critique` que cita o número do critério e dá uma **ação corrigível** ao Recommender.
 - Essa crítica realimenta o loop de reflexão (§3.1).
 
-**Usa:** `syntax_checker_tool`, `diff_generator_tool` + LLM.
+**Prior de preservação de lógica (contraparte da matriz heurística):** antes do LLM, o
+`logic_signals` compara original × refatorado por **AST** e reporta o que *desapareceu* —
+**literais, exceções levantadas e chamadas**. Refatorações legítimas reorganizam a
+estrutura mas **mantêm** esses tokens (um `if/elif` vira dict de estratégias, mas os
+valores e o `raise` continuam lá); então um token que some de vez é forte indício de
+**regra/ramo descartado** (ex.: sumir `18.0`/`"JP"` = uma regra de frete perdida). É
+injetado no prompt como evidência do Critério 2 — o Critic ainda decide.
+
+**Usa:** `syntax_checker_tool`, `diff_generator_tool`, prior `logic_signals` + LLM.
 **Entrega:** `ReflectionReview { is_approved, critique, final_validated_code }`.
 
 ---
@@ -179,7 +188,7 @@ JSON-mode e tool-calling na mesma chamada.
 | **Detector** | código | matriz heurística + AST | confirma + explica | `SmellDetection` |
 | *(ponte)* | smell | `SMELL_TO_PATTERN` fixo | — | pattern + skill |
 | **Recommender** | smell+pattern | Skills + RAG | escreve o código | `RefactoringProposal` |
-| **Critic** | original + refatorado | sintaxe/diff | julga 5 critérios | `ReflectionReview` |
+| **Critic** | original + refatorado | sintaxe/diff + prior de lógica | julga 5 critérios | `ReflectionReview` |
 | **Loop** | crítica | nº fixo de iterações | corrige | resultado validado |
 
 **LLM plugável:** mesmo pipeline roda com **Mistral (API online)** ou **modelos locais via
@@ -324,11 +333,15 @@ prompt = (
 )
 ```
 
-**`review()` — passa original + refatorado para o julgamento dos 5 critérios:**
+**`review()` — injeta o prior de lógica e passa original + refatorado:**
 ```python
+logic_prior = format_logic_prior(                      # AST puro, determinístico
+    analyze_logic_preservation(source_code, proposal.refactored_code)
+)
 prompt = (
     f"Pattern aplicado: {proposal.applied_pattern.value}\n\n"
     "Use obrigatoriamente:\n1. `syntax_checker_tool` ...\n2. `diff_generator_tool` ...\n\n"
+    f"{logic_prior}\n\n"                                # ← tokens perdidos (Critério 2)
     f"Código original:\n```python\n{source_code}\n```\n\n"
     f"Código refatorado:\n```python\n{proposal.refactored_code}\n```\n\n"
     "Avalie os 5 critérios ... e retorne ReflectionReview. Defina `final_validated_code=null`."
@@ -393,6 +406,8 @@ um fallback estruturado (sem propagar HTTP 500).
 - **5 critérios numerados (SMART):** sintaxe · lógica preservada · pattern correto ·
   API pública · imports controlados. **Todos** → aprova; qualquer falha → reprova citando
   o número do critério + **ação corrigível**.
+- O **Critério 2** manda usar o *prior de preservação de lógica* (tokens perdidos) como
+  evidência forte, só aceitando divergência com equivalente funcional explícito.
 - Traz **3 exemplos few-shot inline** (1 aprovação + 2 rejeições no formato "Critério N
   falhou: … Ação: …") para calibrar o veredito. Fixa o schema de `ReflectionReview`.
 

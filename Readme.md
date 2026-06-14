@@ -66,8 +66,6 @@ chave de API gratuita do Mistral:
 > `app/skills/` sob demanda via Agno Skills — **não há embeddings nem
 > RAG** (decisão documentada em
 > [`docs/agentic_patterns.md` §16](docs/agentic_patterns.md#16--skills-substituem-rag-decisão-arquitetural)).
-> Logo, **não é necessário** token HuggingFace, `pgvector` nem Postgres — os
-> agentes são stateless por chamada (Agno aceita `db=None`).
 
 ```bash
 cp .env.example .env

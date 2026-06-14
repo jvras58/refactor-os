@@ -15,7 +15,7 @@ Estes padrões já estão presentes na arquitetura desde a concepção do projet
 | 4 | **Reflection** | Loop Generator-Critic com `MAX_REFLECTION_ITERATIONS` em `RefactorService.run()` |
 | 5 | **Tool Use (Function Calling)** | `ast_analyzer_tool`, `diff_generator_tool`, `syntax_checker_tool` em `app/tools/` |
 | 7 | **Multi-Agent Collaboration** | Três agentes especializados (`DetectorAgent`, `RecommenderAgent`, `CriticAgent`) com papéis exclusivos |
-| 14 | **Skills + RAG (lado a lado)** | `agno.skills.Skills(loaders=[LocalSkills("app/skills")])` injetado no Recommender (estrutura canônica via `get_skill_instructions`) **e** `KnowledgeTools(get_solution_knowledge())` sobre PgVector (exemplos via `search_knowledge`). Ver §15 e §16. |
+| 14 | **Skills + RAG (lado a lado)** | `agno.skills.Skills(loaders=[LocalSkills("app/skills")])` injetado no Recommender (estrutura canônica via `get_skill_instructions`) **e** agentic RAG nativo (`Agent(knowledge=get_solution_knowledge(), search_knowledge=True)`) sobre PgVector (exemplos via `search_knowledge_base`). Ver §15 e §16. |
 | 19 | **Evaluation and Monitoring** | Endpoints `/evaluate/{detector,refactor,critic,all}` — métricas independentes por agente contra `dataset/ground_truth.json` e `dataset/critic_truth.json` (ou amostras enviadas ad-hoc) |
 
 ---
@@ -189,8 +189,9 @@ corpus de soluções (sem duplicar a estrutura nem o registry — que foi removi
 - **Corpus** `app/knowledge/solutions/*.md` — 5 exemplos autorais problema→solução,
   **deliberadamente distintos de `dataset/`** para não vazar ground truth na avaliação
   do Critic (que consome `dataset/solutions/`).
-- O Recommender consulta o corpus via `search_knowledge` (instruído no prompt); as Skills
-  seguem via `get_skill_instructions`.
+- O Recommender usa agentic RAG nativo: `Agent(knowledge=get_solution_knowledge(),
+  search_knowledge=True)` registra a tool `search_knowledge_base` (instruída também no
+  prompt); as Skills seguem via `get_skill_instructions`.
 - Endpoint `POST /api/v1/knowledge/sync` ([knowledge_controller.py](../app/api/controllers/knowledge_controller.py)):
   upsert idempotente do corpus no índice pgvector.
 - Deps de runtime: `sqlalchemy`, `psycopg[binary]`, `pgvector`, `huggingface-hub`.

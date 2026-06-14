@@ -267,6 +267,9 @@ curl -X POST http://localhost:8000/api/v1/evaluate/critic
 
 ---
 
+## 4.4 Dados das nossas avaliações:
+NONE
+
 ## 5. Detalhe técnico — prompts e orquestração
 
 ### 5.1 Duas camadas de instrução

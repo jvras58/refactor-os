@@ -27,6 +27,9 @@ from app.core.schemas import (
     ReflectionReview,
     SmellDetection,
 )
+from app.services.code_repair import repair_refactored_code
+from app.tools.heuristic_engine import format_prior, score_smells
+from app.tools.logic_signals import analyze_logic_preservation, format_logic_prior
 from app.utils.retry import arun_typed
 
 logger = logging.getLogger(__name__)
@@ -56,9 +59,11 @@ class RefactorService:
         self._critic = build_critic_agent()
 
     async def detect(self, source_code: str) -> SmellDetection:
+        prior = format_prior(score_smells(source_code))
         prompt = (
             "Analise o seguinte código-fonte e retorne um SmellDetection.\n"
             "Use obrigatoriamente `ast_analyzer_tool` antes de concluir.\n\n"
+            f"--- Prior da matriz heurística ---\n{prior}\n--- fim do prior ---\n\n"
             f"```python\n{source_code}\n```"
         )
         return await arun_typed(
@@ -92,20 +97,27 @@ class RefactorService:
             "Retorne RefactoringProposal. "
             "No campo `refactored_code` use apenas aspas simples ou duplas — nunca aspas triplas."
         )
-        return await arun_typed(
+        proposal = await arun_typed(
             self._recommender.arun, prompt, schema=RefactoringProposal, label="Recommender"
         )
+        # Sanitiza artefato de indentação (def/class após decorador) antes do Critic/avaliação.
+        proposal.refactored_code = repair_refactored_code(proposal.refactored_code)
+        return proposal
 
     async def review(
         self,
         source_code: str,
         proposal: RefactoringProposal,
     ) -> ReflectionReview:
+        logic_prior = format_logic_prior(
+            analyze_logic_preservation(source_code, proposal.refactored_code)
+        )
         prompt = (
             f"Pattern aplicado: {proposal.applied_pattern.value}\n\n"
             "Use obrigatoriamente:\n"
             "1. `syntax_checker_tool` no código refatorado\n"
             "2. `diff_generator_tool` comparando original e refatorado\n\n"
+            f"{logic_prior}\n\n"
             f"Código original:\n```python\n{source_code}\n```\n\n"
             f"Código refatorado:\n```python\n{proposal.refactored_code}\n```\n\n"
             "Avalie os 5 critérios das instruções e retorne ReflectionReview. "

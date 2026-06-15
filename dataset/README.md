@@ -47,7 +47,7 @@ Cada solução incorreta declara um `defect_kind` (`syntax`, `logic`, `signature
 
 ```bash
 docker compose up -d postgres
-curl -X POST http://localhost:8000/api/v1/knowledge/sync   # indexa os patterns
+curl -X POST http://localhost:8000/api/v1/knowledge/sync   # indexa o corpus de soluções (RAG)
 # via CLI — gera dataset/reports/evaluation.{md,json} (o .md é auto-contido por seção):
 uv run python scripts/run_evaluation.py --all --md dataset/reports/evaluation.md --json dataset/reports/evaluation.json
 # ou via API:

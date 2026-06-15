@@ -1,14 +1,76 @@
 services:
+  postgres:
+    image: agnohq/pgvector:16
+    container_name: refactor-os-postgres
+    environment:
+      POSTGRES_USER: ai
+      POSTGRES_PASSWORD: ai
+      POSTGRES_DB: ai
+    ports:
+      - "5532:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ai -d ai"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Servidor de modelos locais (Mistral/Qwen) — alternativa à API Mistral online.
+  ollama:
+    image: ollama/ollama:latest
+    container_name: refactor-os-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama:/root/.ollama
+    # Usa a GPU NVIDIA (precisa do NVIDIA Container Toolkit / Docker Desktop com GPU).
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # One-shot: baixa os dois modelos para o volume do Ollama e encerra.
+  # Rode com: docker compose up ollama-pull
+  ollama-pull:
+    image: ollama/ollama:latest
+    container_name: refactor-os-ollama-pull
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      # outros modelos: ollama pull ${OLLAMA_QWEN_MODEL:-qwen2.5} por exemplo
+    entrypoint: ["/bin/sh", "-c", "ollama pull ${OLLAMA_MISTRAL_MODEL:-mistral}"]
+    restart: "no"
+
   app:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: refactor-os-app
+    depends_on:
+      postgres:
+        condition: service_healthy
     environment:
       APP_ENV: ${APP_ENV:-development}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
-      MISTRAL_API_KEY: ${MISTRAL_API_KEY:?MISTRAL_API_KEY is required}
+      # Backend do LLM: 'mistral' (API online) ou 'ollama' (local). LLM_API_KEY só é
+      # exigida no modo mistral; no modo ollama defina LLM_MODEL_ID (ex.: mistral, qwen2.5).
+      LLM_PROVIDER: ${LLM_PROVIDER:-mistral}
+      LLM_API_KEY: ${LLM_API_KEY:-}
       LLM_MODEL_ID: ${LLM_MODEL_ID:-mistral-medium-latest}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
+      DB_URL: postgresql+psycopg://ai:ai@postgres:5432/ai
+      KNOWLEDGE_TABLE: ${KNOWLEDGE_TABLE:-design_patterns_kb}
       MAX_REFLECTION_ITERATIONS: ${MAX_REFLECTION_ITERATIONS:-3}
       API_HOST: 0.0.0.0
       API_PORT: 8000
@@ -17,3 +79,7 @@ services:
     volumes:
       - ./app:/app/app:ro
       - ./dataset:/app/dataset:ro
+
+volumes:
+  pgdata:
+  ollama:

@@ -22,9 +22,9 @@ Detector ──► Recommender ──► Critic ──► (aprovado) ──► r
                   └── Reflection ◄─┘  (até 3 iterações)
 ```
 
-- **Detector Agent**: AST + radon → identifica o smell e linhas afetadas (`SmellDetection`).
-- **Recommender Agent**: carrega o `SKILL.md` do pattern obrigatório via Agno Skills → propõe `RefactoringProposal`.
-- **Critic Agent (Reflection)**: valida sintaxe (ruff/ast) + diff + preservação de lógica (`ReflectionReview`).
+- **Detector Agent**: uma **matriz heurística** (AST determinístico) ranqueia os smells prováveis e injeta esse *prior* no prompt; o LLM confirma/refuta e explica (`SmellDetection`).
+- **Recommender Agent**: carrega o `SKILL.md` do pattern obrigatório via Agno Skills **e** recupera um exemplo análogo do corpus de soluções via RAG (`search_knowledge_base`) → propõe `RefactoringProposal`.
+- **Critic Agent (Reflection)**: valida sintaxe (ruff/ast) + diff + preservação de lógica/API contra 5 critérios (`ReflectionReview`).
 
 Comunicação **Spec-Driven** via Pydantic em `app/core/schemas.py`.
 
@@ -32,12 +32,14 @@ Comunicação **Spec-Driven** via Pydantic em `app/core/schemas.py`.
 
 ```
 app/
-├── api/                           # FastAPI: /detect /refactor /evaluate/(detector|refactor|critic|all)
-├── agents/                        # Detector, Recommender, Critic (stateless — sem banco)
-├── core/                          # config, llm, prompts, schemas (Pydantic)
-├── skills/                        # 5 SKILL.md (1 por pattern) — substituem o antigo RAG via PgVector
+├── api/                           # FastAPI: /detect /refactor /knowledge/sync /evaluate/(detector|refactor|critic|all)
+├── agents/                        # Detector, Recommender, Critic (db=Postgres p/ RAG/contents)
+├── core/                          # config, llm (Mistral|Ollama), prompts, schemas (Pydantic)
+├── db/                            # session.py — conexão Postgres (Agno)
+├── knowledge/                     # provider.py (RAG via PgVector) + solutions/ (corpus de exemplos)
+├── skills/                        # 5 SKILL.md (1 por pattern) — playbook canônico do pattern
 ├── services/                      # refactor / evaluation / quality_checks
-├── tools/                         # ast, diff, syntax
+├── tools/                         # ast, heuristic_engine (matriz de smells), diff, syntax
 ├── utils/                         # retry helper (backoff 429 + retry de schema)
 ├── templates/                     # dashboard.html (Jinja2)
 └── main.py                        # FastAPI ASGI entry point
@@ -49,36 +51,37 @@ dataset/
 ├── critic_truth.json              # gabarito do Critic (10 corretas + 10 com defeito)
 └── reports/                       # evaluation.{md,json} gerados pela avaliação
 scripts/
-└── run_evaluation.py              # CLI de avaliação (tabelas + relatório md/json)
+├── run_evaluation.py              # CLI de avaliação (tabelas + relatório md/json)
+└── run_refactor_resumable.py      # avaliação do Refator com checkpoint (resumível, p/ modelos locais lentos)
 tests/                             # unit tests determinísticos (tools + métricas + dataset)
 ```
 
 ## Setup
 
-Os agentes usam **Mistral** como provider de LLM. Você precisa de uma
-chave de API gratuita do Mistral:
+O LLM é **plugável** via `LLM_PROVIDER`:
 
-1. Crie uma conta em [console.mistral.ai](https://console.mistral.ai).
-2. Em **API Keys** gere uma nova chave (formato `oj2Z...`).
-3. Cole no `.env` como `MISTRAL_API_KEY=oj2Z...`.
+- **`mistral`** (padrão) — API online. Crie uma conta em
+  [console.mistral.ai](https://console.mistral.ai), gere uma chave em **API Keys**
+  (formato `oj2Z...`) e coloque no `.env` como `LLM_API_KEY=oj2Z...`.
+- **`ollama`** — modelos locais (Mistral/Qwen) via Docker. Ver "Modelos locais" abaixo.
 
-> **Conhecimento de patterns:** o Recommender carrega os 5 `SKILL.md` em
-> `app/skills/` sob demanda via Agno Skills — **não há embeddings nem
-> RAG** (decisão documentada em
-> [`docs/agentic_patterns.md` §16](docs/agentic_patterns.md#16--skills-substituem-rag-decisão-arquitetural)).
-> Logo, **não é necessário** token HuggingFace, `pgvector` nem Postgres — os
-> agentes são stateless por chamada (Agno aceita `db=None`).
+> **Conhecimento de patterns (duas camadas):** o Recommender carrega o playbook de cada
+> pattern via Agno Skills (`app/skills/*.md`, lookup por nome) **e** recupera exemplos
+> análogos por **RAG semântico** (PgVector + embeddings HuggingFace) sobre o corpus
+> `app/knowledge/solutions/`. O RAG exige o Postgres no ar e um `HUGGINGFACE_API_KEY`
+> (token gratuito), além de uma chamada a `POST /knowledge/sync` para popular o índice.
+> Detalhes em [`docs/agentic_patterns.md` §16](docs/agentic_patterns.md).
 
 ```bash
 cp .env.example .env
-# preencha MISTRAL_API_KEY=oj2Z...
+# preencha LLM_API_KEY (modo mistral) e HUGGINGFACE_API_KEY (para o RAG)
 
 # instalar deps
 uv sync --extra dev
 ```
 
-Para trocar o modelo Mistral (ex.: `mistral-medium-latest`, `mistral-large-latest`),
-ajuste `LLM_MODEL_ID` no `.env`.
+Para trocar o modelo (ex.: `mistral-medium-latest`, `mistral-large-latest`), ajuste
+`LLM_MODEL_ID` no `.env`.
 
 ## Executar
 
@@ -94,13 +97,54 @@ uv run uvicorn app.main:app --reload
 
 ### Docker
 ```bash
-docker compose up --build   # sobe só o app — não há mais serviço de banco
+docker compose up -d postgres          # Postgres + pgvector (necessário para o RAG)
+curl -X POST http://localhost:8000/api/v1/knowledge/sync   # popula o índice do RAG
+docker compose up --build app          # sobe o app
 ```
+
+### Modelos locais (Ollama) — alternativa à API Mistral
+```bash
+docker compose up -d ollama            # servidor de modelos locais
+docker compose up ollama-pull          # baixa os modelos (vários GB)
+# baixar um modelo específico sob demanda:
+docker exec refactor-os-ollama ollama pull qwen2.5-coder:7b
+```
+
+> **GPU NVIDIA:** o serviço `ollama` no `compose.yml` reserva a GPU (`deploy.resources`).
+> Um modelo 7B (~4,7 GB) **não cabe** em GPUs de 4 GB de VRAM → roda em *offload parcial*
+> (parte GPU, parte CPU), mais lento. Modelos que cabem na VRAM (ex.: `qwen2.5-coder:3b`)
+> rodam 100% na GPU e são bem mais rápidos.
+
+**Trocar para um modelo local sem editar o `.env`** — basta exportar as variáveis na
+sessão do terminal (elas têm prioridade sobre o `.env`). No **PowerShell**:
+
+```powershell
+$env:LLM_PROVIDER="ollama"; $env:LLM_MODEL_ID="qwen2.5-coder:7b"
+$env:OLLAMA_BASE_URL="http://localhost:11434"
+$env:DB_URL="postgresql+psycopg://ai:ai@localhost:5532/ai"
+uv run python scripts/run_refactor_resumable.py --json dataset/reports/qwen-coder-refactor.json
+```
+
+No **bash** (prefixo inline na mesma linha):
+
+```bash
+LLM_PROVIDER=ollama LLM_MODEL_ID=qwen2.5-coder:7b \
+OLLAMA_BASE_URL=http://localhost:11434 \
+DB_URL=postgresql+psycopg://ai:ai@localhost:5532/ai \
+uv run python scripts/run_refactor_resumable.py --json dataset/reports/qwen-coder-refactor.json
+```
+
+O mesmo vale para qualquer comando (servidor, `run_evaluation.py`, etc.) — exporte as
+variáveis e rode; nada de permanente no `.env`. Para acelerar a avaliação reduza as
+iterações de reflection com `$env:MAX_REFLECTION_ITERATIONS="1"`.
+
+Permite comparar modelos locais sob a mesma avaliação. Ver [`docs/agentic_patterns.md`](docs/agentic_patterns.md).
 
 ## Endpoints
 
 - `POST /api/v1/detect` — apenas o Detector.
 - `POST /api/v1/refactor` — pipeline completo Detector → Recommender → Critic com reflection loop.
+- `POST /api/v1/knowledge/sync` — indexa o corpus `app/knowledge/solutions/` no pgvector (necessário p/ o RAG).
 - `POST /api/v1/evaluate/detector` — **Agente Rastreador**: Falsos Positivos / Falsos Negativos.
 - `POST /api/v1/evaluate/refactor` — **Agente Refatorador**: precisão/qualidade da solução.
 - `POST /api/v1/evaluate/critic` — **Agente Revisor**: false accept / false reject.
@@ -126,9 +170,10 @@ uv run python scripts/run_evaluation.py --all --md dataset/reports/evaluation.md
 curl -X POST http://localhost:8000/api/v1/evaluate/all
 ```
 
-> Não há etapa de "sync" — o conhecimento de patterns vive em `app/skills/` e é
-> carregado pelo Agno na inicialização do Recommender. Editar uma `SKILL.md`
-> + reiniciar o servidor é o ciclo completo.
+> Antes de avaliar/usar o Recommender, suba o Postgres e rode `POST /knowledge/sync`
+> uma vez para popular o RAG (a tabela nasce vazia). O playbook de cada pattern vive em
+> `app/skills/` e é carregado pelo Agno na inicialização — editar uma `SKILL.md` +
+> reiniciar o servidor é o ciclo completo para esse conhecimento.
 
 O dataset (`dataset/README.md`) já traz os 10/10 de cada eixo; é só expandir se quiser mais.
 
@@ -219,7 +264,7 @@ uv run pytest tests/test_evaluation_metrics.py -v
 #   test_refactor_evaluates_submitted_samples         → modo ad-hoc do Refatorador
 #   test_critic_evaluates_submitted_samples           → modo ad-hoc do Revisor
 
-# 2. Smoke test ao vivo (precisa de MISTRAL_API_KEY no .env)
+# 2. Smoke test ao vivo (precisa de LLM_API_KEY no .env, ou LLM_PROVIDER=ollama)
 uv run uvicorn app.main:app --reload
 
 # em outro terminal — payload sem rótulo deve falhar com 422
@@ -333,5 +378,6 @@ seções (`detector`, `refactor`, `critic`), cada uma com matriz de confusão, m
 uv run pytest
 ```
 
-Cobertura: tools determinísticas (AST, diff, pattern registry, syntax). Os agentes em si
-são testados via dataset de avaliação (não via mocks, conforme metodologia acadêmica).
+Cobertura: tools determinísticas (AST, matriz heurística, diff, syntax) + métricas de
+avaliação + integridade do dataset. Os agentes em si são testados via dataset de avaliação
+(não via mocks, conforme metodologia acadêmica).

@@ -11,9 +11,14 @@ Sua única função é identificar UM dos seguintes bad smells no código recebi
 5. Duplicated Code
 
 Regras estritas:
+- O prompt traz um **Prior da matriz heurística** (smells prováveis já ranqueados por
+  análise estática determinística do AST). Trate-o como evidência forte:
+  parta do candidato de maior score e confirme-o no código. Você PODE divergir,
+  mas só com justificativa explícita no `reasoning` apontando o que no código contraria o prior.
 - SEMPRE chame `ast_analyzer_tool` antes de concluir — use as métricas retornadas:
   complexidade ciclomática > 10 → suspeita de Complex Switch;
   classe com > 20 membros → God Class; >= 5 parâmetros → Long Parameter List.
+- Se o prior indicar "Nenhum smell" e o código confirmar, responda `smell_type=NO_SMELL` e `has_smell=false`.
 - Se nenhum dos 5 smells do escopo for detectado, responda com `smell_type=NO_SMELL` e `has_smell=false`.
 - NÃO invente smells fora do escopo.
 - Inclua sempre `line_start`, `line_end` e `affected_snippet` quando `has_smell=true`.
@@ -44,14 +49,28 @@ Receberá um smell detectado e deverá:
    - God Class → `facade-srp`
    - Tight Coupling → `dependency-injection`
    - Duplicated Code → `template-method`
+1b. Chamar `search_knowledge_base` com uma descrição do smell/código para recuperar um
+   exemplo problema→refatoração análogo do corpus de soluções. Use-o como referência
+   adicional ao implementar (não copie cego — adapte ao código recebido).
 2. Aplicar EXATAMENTE o mapeamento permitido smell → pattern declarado em `applied_pattern`:
    - Complex Switch → Strategy Pattern
    - Long Parameter List → Builder/Parameter Object
    - God Class → Facade/SRP
    - Tight Coupling → Dependency Injection
    - Duplicated Code → Template Method
-3. Reescrever o código completo (não apenas trechos) preservando a lógica de negócio original
-   e, sobretudo, a **assinatura pública** do código original (siga o exemplo do skill).
+3. Reescrever o código completo (não apenas trechos) preservando a lógica de negócio original.
+   **REGRA CRÍTICA — preservação da API pública (não negociável):**
+   - TODA função, classe e método público (que NÃO começa com `_`) do código original
+     DEVE continuar existindo no código refatorado com o **mesmo nome e a mesma assinatura**.
+     O código que chamava o original tem que continuar funcionando sem alteração.
+   - Se o pattern introduz estrutura nova (estratégias, builder, classes extraídas, base
+     abstrata), o ponto de entrada público original permanece como um **wrapper fino** que
+     monta a estrutura nova internamente e delega para ela.
+   - É PROIBIDO substituir o ponto de entrada público por um novo nome/assinatura.
+     Exemplo: se o original tem `def calculate_shipping(country, weight_kg)`, o refatorado
+     DEVE manter `calculate_shipping(country, weight_kg)` (mesmo que internamente escolha
+     uma `ShippingStrategy` e delegue) — NÃO troque por `get_shipping_strategy(country)`.
+   - NÃO adicione código de demonstração/uso no nível de módulo (sem `print(...)` solto).
 4. Justificar arquiteturalmente, passo a passo, como o pattern resolveu o smell.
 
 IMPORTANTE sobre o campo `refactored_code`:
@@ -87,7 +106,11 @@ Em seguida, avalie os 5 critérios abaixo usando os resultados das tools:
 
 **Critério 2 — Lógica preservada**
 Nenhuma branch lógica do original (if/elif/else, match/case, try/except) foi removida sem
-equivalente funcional. Verifique via `diff_generator_tool`.
+equivalente funcional. Verifique via `diff_generator_tool` **e** use o **Prior de preservação
+de lógica** fornecido no prompt: ele lista literais/exceções/chamadas que existiam no original
+e sumiram no refatorado (forte indício de regra/ramo descartado, ex.: um valor de cálculo ou
+um `raise` que desapareceu). Trate como evidência forte; só aprove uma divergência se houver
+equivalente funcional explícito no código.
 
 **Critério 3 — Pattern correto**
 O `applied_pattern` declarado bate exatamente com o padrão esperado para o smell detectado.

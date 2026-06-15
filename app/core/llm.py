@@ -41,6 +41,14 @@ def build_main_model() -> MistralChat | Ollama:
     return _build_model(get_settings().llm_temperature)
 
 
-def build_parser_model() -> MistralChat | Ollama:
-    """LLM that extracts the structured output. Uses temperature 0 for stability."""
+def build_parser_model() -> MistralChat | Ollama | None:
+    """LLM that extracts the structured output. Uses temperature 0 for stability.
+
+    Only needed for Mistral, whose JSON-mode is incompatible with tool/skill calls
+    in the same request. Ollama supports native structured output, so a second
+    extraction pass is skipped there — that pass was re-serializing multi-line code
+    and corrupting indentation (breaking ``syntax_valid``).
+    """
+    if get_settings().llm_provider == "ollama":
+        return None
     return _build_model(0.0)

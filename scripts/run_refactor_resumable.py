@@ -25,6 +25,8 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
+import time
 from pathlib import Path
 
 from app.core.schemas import RefactorQualityMetrics, RefactorRequest
@@ -103,6 +105,7 @@ async def main() -> int:
     parser.add_argument("--md", type=Path, help="caminho do relatório Markdown (default: ao lado do JSON)")
     parser.add_argument("--checkpoint", type=Path, help="JSONL de checkpoint (default: <json>.partial.jsonl)")
     parser.add_argument("--reset", action="store_true", help="descarta o checkpoint e recomeça do zero")
+    parser.add_argument("--force", action="store_true", help="ignora um lock existente (use só se tiver certeza que nenhuma outra instância roda)")
     args = parser.parse_args()
 
     json_out = args.json
@@ -112,12 +115,28 @@ async def main() -> int:
     if args.reset and checkpoint.exists():
         checkpoint.unlink()
 
+    # Lock simples: evita duas instâncias gravando no mesmo checkpoint (gera duplicatas
+    # e contenção de GPU). Lock obsoleto após um crash → use --force ou apague o arquivo.
+    lock = checkpoint.with_suffix(".lock")
+    if lock.exists() and not args.force:
+        print(
+            f"Lock encontrado em {lock} — outra instância pode estar rodando.\n"
+            f"Se tiver certeza que não, apague-o ou rode com --force.",
+            flush=True,
+        )
+        return 1
+    lock.write_text(str(os.getpid()), encoding="utf-8")
+    try:
+        return await _run(json_out, md_out, checkpoint)
+    finally:
+        lock.unlink(missing_ok=True)
+
+
+async def _run(json_out: Path, md_out: Path, checkpoint: Path) -> int:
     service = EvaluationService()
     inputs = service._refactor_inputs_from_dataset()  # noqa: SLF001
     done = _load_checkpoint(checkpoint)
     print(f"total={len(inputs)} concluídos={len(done)} restantes={len(inputs) - len(done)}", flush=True)
-
-    import time
 
     for idx, (label, original, expected_pattern) in enumerate(inputs, 1):
         if label in done:

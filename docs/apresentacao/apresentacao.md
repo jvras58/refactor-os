@@ -298,8 +298,55 @@ curl -X POST http://localhost:8000/api/v1/evaluate/critic
 
 ---
 
-## 4.4 Dados das nossas avaliações:
-NONE
+## 4.4 Dados das nossas avaliações
+
+Runs sobre o dataset 10/10 com **Mistral**. *Baseline* = antes do few-shot; *Pós-mudanças
+(premium)* = após `parser_model` + Agno Skills + `arun_typed`, no tier produtivo (sem 429,
+40/40 endpoints completos). Fonte: [`dataset/reports/`](../../dataset/reports/).
+
+**Detector** — 20 arquivos (10 com smell + 10 limpos), saturado em ambos:
+
+| Métrica | Baseline | Pós (premium) |
+|---|---|---|
+| Precision / Recall / F1 | 1.00 | 1.00 |
+| Specificity (código limpo) | 1.00 | 1.00 |
+| Type-accuracy (tipo do smell) | 1.00 | 1.00 |
+| Confusão | TP 10 · FP 0 · TN 10 · FN 0 | idem |
+
+**Recommender** — 10 problemas:
+
+| Métrica | Baseline | Pós (premium) |
+|---|---|---|
+| **Accuracy** (correto nos 3 eixos) | 0.60 | **1.00** |
+| Pattern correto | 1.00 | 1.00 |
+| Sintaxe válida | 1.00 | 1.00 |
+| **Lógica/API preservada** | 0.60 | **1.00** |
+| Aprovado no pipeline | 0.70 | 1.00 |
+| Iterações médias | 1.30 | 1.10 |
+
+**Critic**:
+
+| Métrica | Baseline (n=19) | Pós (premium, n=20) |
+|---|---|---|
+| Accuracy | 0.95 | 1.00 |
+| F1 | 0.941 | 1.00 |
+| False Accept Rate | 0.00 | 0.00 |
+| **False Reject Rate** | 0.111 | **0.000** |
+
+**Ganho baseline → pós-mudanças:** Recommender accuracy **0.60 → 1.00** e lógica preservada
+**0.60 → 1.00**; Critic F1 **0.941 → 1.00** (eliminou o único *false reject*); iterações médias
+1.30 → 1.10. O Detector já estava saturado em 1.00.
+
+> ⚠️ **Free-tier × produtivo:** a run em Mistral free-tier foi comprometida por **rate-limit
+> (429)** — 6/10 Recommender e 16/20 Critic falharam, derrubando os números (Recommender
+> accuracy 0.40; Critic só 4/20 avaliados). É argumento para o tier produtivo ou **modelos
+> locais (Ollama)** — não reflete qualidade do modelo.
+
+> 📌 **Escopo temporal:** estes números são de jun/2026, **anteriores** aos dois priors
+> determinísticos (matriz heurística do Detector e prior de lógica do Critic). Como Detector
+> e Critic já saturavam em 1.00 no tier produtivo, os priors atuam como **rede de segurança e
+> reprodutibilidade** — com ganho esperado maior em **modelos locais** mais fracos. Re-medir
+> com os priors (e comparar Mistral × Qwen local) é o próximo passo.
 
 ## 5. Detalhe técnico — prompts e orquestração
 

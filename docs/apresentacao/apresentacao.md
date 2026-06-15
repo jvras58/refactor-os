@@ -342,11 +342,42 @@ Runs sobre o dataset 10/10 com **Mistral**. *Baseline* = antes do few-shot; *Pó
 > accuracy 0.40; Critic só 4/20 avaliados). É argumento para o tier produtivo ou **modelos
 > locais (Ollama)** — não reflete qualidade do modelo.
 
-> 📌 **Escopo temporal:** estes números são de jun/2026, **anteriores** aos dois priors
-> determinísticos (matriz heurística do Detector e prior de lógica do Critic). Como Detector
-> e Critic já saturavam em 1.00 no tier produtivo, os priors atuam como **rede de segurança e
-> reprodutibilidade** — com ganho esperado maior em **modelos locais** mais fracos. Re-medir
-> com os priors (e comparar Mistral × Qwen local) é o próximo passo.
+> 📌 **Escopo temporal:** estes números são de jun/2026. Os dois priors determinísticos
+> (matriz heurística do Detector e prior de lógica do Critic) atuam como **rede de segurança e
+> reprodutibilidade**, com ganho maior em **modelos locais** mais fracos — medido em §4.5.
+
+---
+
+## 4.5 Modelo local (Ollama) — Mistral API × Qwen-coder 7B
+
+Mesma suíte e mesmo gabarito, trocando apenas `LLM_PROVIDER`/`LLM_MODEL_ID`. O modelo local é o
+`qwen2.5-coder:7b` (especializado em código), em GPU de 4 GB (offload parcial). Fonte:
+[`dataset/reports/qwen-coder-dc.{md,json}`](../../dataset/reports/) e
+[`qwen-coder-refactor.{md,json}`](../../dataset/reports/).
+
+| Agente | Métrica | Mistral API (premium) | **Qwen-coder 7B local** |
+|---|---|---|---|
+| **Detector** | F1 / Specificity / Type-acc | 1.00 | **1.00** |
+| | Confusão | TP 10 · FP 0 · TN 10 · FN 0 | **idem** |
+| **Critic** | Accuracy / F1 | 1.00 / 1.00 | **1.00 / 1.00** |
+| | False Accept / False Reject | 0.00 / 0.00 | **0.00 / 0.00** |
+| **Recommender** | **Accuracy** (3 eixos) | 1.00 | **0.70** |
+| | Pattern correto / Sintaxe válida | 1.00 / 1.00 | 1.00 / 1.00 |
+| | API preservada | 1.00 | 0.70 |
+| | Aprovado / Iterações médias | 1.00 / 1.10 | 0.90 / 1.40 |
+
+**Leitura:**
+- **Detecção e Revisão saturam em 1.00 também no modelo local** — tarefas discriminativas
+  escoradas por priors determinísticos **não dependem do tamanho do LLM**.
+- **Geração (Recommender) é onde o 7B local fica atrás** (0.70 vs 1.00), limitado pela
+  **preservação da API pública** nos patterns que decompõem estrutura (Facade/SRP, Template Method).
+- **Viável a custo zero:** um 7B local entrega Detector/Critic perfeitos e Refator 0.70, sem API paga.
+
+> ⚠️ **O gargalo era o pipeline, não o modelo.** Antes de corrigir um artefato de serialização
+> do output (indentação após decorador) e reforçar a preservação da API no prompt, o Refator
+> local marcava **~0%** — bug de pipeline, não incapacidade do modelo. A investigação (1 bug
+> confirmado + 1 teoria refutada) está em
+> [`docs/licoes-modelos-locais.md`](../licoes-modelos-locais.md).
 
 ## 5. Detalhe técnico — prompts e orquestração
 

@@ -85,16 +85,21 @@ class MultiDetectorService:
     # ------------------------------------------------------------- phase 1
     @staticmethod
     def _validate_python(source_code: str) -> None:
+        logger.info("[fase 1] entrada: %d chars de código-fonte", len(source_code))
+        logger.debug("[fase 1] entrada (código completo):\n%s", source_code)
         try:
             ast.parse(source_code)
         except SyntaxError as exc:
+            logger.warning("[fase 1] saída: inválido — %s (linha %s)", exc.msg, exc.lineno)
             raise InvalidPythonCodeError(
                 f"código não compila como Python: {exc.msg}", line=exc.lineno
             ) from exc
+        logger.info("[fase 1] saída: código Python válido")
 
     # ------------------------------------------------------------- phase 2
     @staticmethod
     def _run_heuristics(source_code: str) -> HeuristicScan:
+        logger.info("[fase 2] entrada: %d chars de código-fonte", len(source_code))
         raw = score_all_smells(source_code)
         signals: dict[SmellType, SmellHeuristicSignal] = {}
         for smell_type, bad_smell in _SMELL_TYPE_TO_BAD_SMELL.items():
@@ -112,6 +117,11 @@ class MultiDetectorService:
                     line_start=signal.line_start,
                     line_end=signal.line_end,
                 )
+        for smell_type, sig in signals.items():
+            logger.info(
+                "[fase 2] saída: %s -> possible=%s score=%.2f evidence=%s",
+                smell_type.value, sig.possible, sig.score, sig.evidence,
+            )
         return HeuristicScan(signals=signals)
 
     # ------------------------------------------------------------- phase 3
@@ -145,12 +155,20 @@ class MultiDetectorService:
             heuristic_context=heuristic_context,
             source_code=source_code,
         )
+        label = f"MultiDetector[{type_a_name} + {type_b_name}]"
+        logger.info("[fase 3] entrada: par (%s, %s) — prompt com %d chars", type_a_name, type_b_name, len(prompt))
+        logger.debug("[fase 3] entrada (prompt completo, %s):\n%s", label, prompt)
         response = await arun_typed(
             self._agent.arun,
             prompt,
             schema=PairedDetectionResponse,
-            label=f"MultiDetector[{type_a_name} + {type_b_name}]",
+            label=label,
         )
+        logger.info(
+            "[fase 3] saída (%s): %s=%s | %s=%s",
+            label, type_a_name, response.result_a.detected, type_b_name, response.result_b.detected,
+        )
+        logger.debug("[fase 3] saída completa (%s): %s", label, response.model_dump_json())
         return [response.result_a, response.result_b]
 
     async def _check_smell_pair(
@@ -201,4 +219,7 @@ class MultiDetectorService:
 
     # ------------------------------------------------------------- phase 4
     def compile(self, scan: DetectionScanResult) -> object:
-        return self._compiler.compile(scan)
+        logger.info("[fase 4] entrada: %d resultados de tipo via %s", len(scan.type_results), type(self._compiler).__name__)
+        result = self._compiler.compile(scan)
+        logger.info("[fase 4] saída: %s", result)
+        return result

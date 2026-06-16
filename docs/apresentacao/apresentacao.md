@@ -315,12 +315,15 @@ Runs sobre o dataset 10/10 com **Mistral**. *Baseline* = antes do few-shot; *Pó
 
 **Recommender** — 10 problemas:
 
+> ⚠️ Estes números do Recommender usam o **scorer antigo** (preservação só de **nome público**,
+> não de comportamento). Com o scorer corrigido (§4.5) o "1.00" cai — re-medição pendente.
+
 | Métrica | Baseline | Pós (premium) |
 |---|---|---|
-| **Accuracy** (correto nos 3 eixos) | 0.60 | **1.00** |
+| **Accuracy** (correto nos 3 eixos) | 0.60 | **1.00** † |
 | Pattern correto | 1.00 | 1.00 |
 | Sintaxe válida | 1.00 | 1.00 |
-| **Lógica/API preservada** | 0.60 | **1.00** |
+| **Lógica/API preservada** | 0.60 | **1.00** † |
 | Aprovado no pipeline | 0.70 | 1.00 |
 | Iterações médias | 1.30 | 1.10 |
 
@@ -353,31 +356,43 @@ Runs sobre o dataset 10/10 com **Mistral**. *Baseline* = antes do few-shot; *Pó
 Mesma suíte e mesmo gabarito, trocando apenas `LLM_PROVIDER`/`LLM_MODEL_ID`. O modelo local é o
 `qwen2.5-coder:7b` (especializado em código), em GPU de 4 GB (offload parcial). Fonte:
 [`dataset/reports/qwen-coder-dc.{md,json}`](../../dataset/reports/) e
-[`qwen-coder-refactor.{md,json}`](../../dataset/reports/).
+[`qwen-coder-refactor-v2.{md,json}`](../../dataset/reports/).
+
+> 🔧 **Correção de método (importante):** o scorer do Refator passou a exigir **preservação
+> de comportamento** (sem `raise`/literais descartados), não só de nomes públicos. Antes, uma
+> refatoração que mantinha a função pública como *wrapper* mas trocava `raise ValueError(...)`
+> por um `KeyError` implícito contava como correta. Os números do Recommender abaixo já usam o
+> scorer corrigido; o **Mistral premium (†) ainda está com o scorer antigo** e será re-medido.
 
 | Agente | Métrica | Mistral API (premium) | **Qwen-coder 7B local** |
 |---|---|---|---|
 | **Detector** | F1 / Specificity / Type-acc | 1.00 | **1.00** |
 | | Confusão | TP 10 · FP 0 · TN 10 · FN 0 | **idem** |
-| **Critic** | Accuracy / F1 | 1.00 / 1.00 | **1.00 / 1.00** |
+| **Critic** | Accuracy / F1 (no `critic_truth`) | 1.00 / 1.00 | **1.00 / 1.00** |
 | | False Accept / False Reject | 0.00 / 0.00 | **0.00 / 0.00** |
-| **Recommender** | **Accuracy** (3 eixos) | 1.00 | **0.70** |
-| | Pattern correto / Sintaxe válida | 1.00 / 1.00 | 1.00 / 1.00 |
-| | API preservada | 1.00 | 0.70 |
-| | Aprovado / Iterações médias | 1.00 / 1.10 | 0.90 / 1.40 |
+| **Recommender** | **Accuracy** (3 eixos) | 1.00 † | **0.80** |
+| | Pattern correto / Sintaxe válida | 1.00 / 1.00 | 1.00 / 0.90 |
+| | Comportamento+API preservados | 1.00 † | 0.80 |
 
-**Leitura:**
+**Leitura (honesta):**
 - **Detecção e Revisão saturam em 1.00 também no modelo local** — tarefas discriminativas
   escoradas por priors determinísticos **não dependem do tamanho do LLM**.
-- **Geração (Recommender) é onde o 7B local fica atrás** (0.70 vs 1.00), limitado pela
-  **preservação da API pública** nos patterns que decompõem estrutura (Facade/SRP, Template Method).
-- **Viável a custo zero:** um 7B local entrega Detector/Critic perfeitos e Refator 0.70, sem API paga.
+- **Geração (Recommender):** o 7B local marca **~0.80**, limitado por refatorações que
+  **descartam ramos/exceções** ao decompor estrutura (Facade/SRP, Template Method).
+- **Variância:** num dataset de 10 itens a métrica balança (~±10% só por aleatoriedade do LLM);
+  o valor não deve ser lido com 2 casas decimais.
+- **Ponto cego do Critic:** em `10_duplicated_code` o Critic **aprovou** uma refatoração que o
+  scorer determinístico **reprovou** por quebra de comportamento — então o 1.00 do Critic (no
+  `critic_truth` rotulado) **superestima** a confiabilidade em saídas reais.
 
 > ⚠️ **O gargalo era o pipeline, não o modelo.** Antes de corrigir um artefato de serialização
 > do output (indentação após decorador) e reforçar a preservação da API no prompt, o Refator
 > local marcava **~0%** — bug de pipeline, não incapacidade do modelo. A investigação (1 bug
 > confirmado + 1 teoria refutada) está em
 > [`docs/licoes-modelos-locais.md`](../licoes-modelos-locais.md).
+>
+> † **Pendente:** o Mistral premium ainda não foi re-medido com o scorer de comportamento —
+> o "1.00" do Recommender é otimista e cai após re-rodar.
 
 ## 5. Detalhe técnico — prompts e orquestração
 

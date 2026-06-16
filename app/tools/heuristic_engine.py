@@ -237,6 +237,27 @@ def score_smells(source_code: str) -> list[SmellSignal]:
     return signals
 
 
+# Scorers for the 4 smells in scope of the new multi-detector (app/services/
+# multi_detector_service.py) — excludes Tight Coupling, dropped from that scope.
+_SCORERS_BY_SMELL = {
+    BadSmellType.COMPLEX_SWITCH: _score_complex_switch,
+    BadSmellType.LONG_PARAMETER: _score_long_parameter,
+    BadSmellType.GOD_CLASS: _score_god_class,
+    BadSmellType.DUPLICATED_CODE: _score_duplicated_code,
+}
+
+
+def score_all_smells(source_code: str) -> dict[BadSmellType, SmellSignal | None]:
+    """Like ``score_smells``, but returns one slot per in-scope smell (None when
+    that smell's heuristic did not trigger) instead of a filtered, ranked list.
+
+    Used by the multi-detector's phase 2, which needs an explicit "no evidence"
+    result per smell to inform phase 3's LLM prompts — not just the winners.
+    """
+    tree = ast.parse(source_code)
+    return {smell: scorer(tree) for smell, scorer in _SCORERS_BY_SMELL.items()}
+
+
 def format_prior(signals: list[SmellSignal]) -> str:
     """Render the ranked signals as a prompt block for the Detector."""
     if not signals:

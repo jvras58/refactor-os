@@ -20,14 +20,19 @@ class NotaFiscalSubsistema:
     def emitir(self, produto_id, quantidade, valor_total): ...
 
 
-class CheckoutService:
+class LojaController:
     def __init__(self):
         self._estoque = EstoqueSubsistema()
         self._imposto = ImpostoSubsistema()
         self._pagamento = PagamentoSubsistema()
         self._nota = NotaFiscalSubsistema()
 
-    def fechar_pedido(self, produto_id, quantidade, valor, estado, dados_pagamento):
+    def receber_pedido_do_carrinho(self, request: dict) -> dict:
+        produto_id = request["produto_id"]
+        quantidade = request["quantidade"]
+        valor = request["valor"]
+        estado = request["estado"]
+
         if not self._estoque.verificar_disponibilidade(produto_id, quantidade):
             raise RuntimeError("sem estoque")
         self._estoque.reservar(produto_id, quantidade)
@@ -35,7 +40,7 @@ class CheckoutService:
         valor_imposto = self._imposto.calcular(valor, estado)
         valor_total = valor + valor_imposto
 
-        resultado_pagamento = self._pagamento.cobrar(dados_pagamento, valor_total)
+        resultado_pagamento = self._pagamento.cobrar(request["dados_pagamento"], valor_total)
         if resultado_pagamento["status"] != "aprovado":
             self._estoque.liberar_reserva(produto_id, quantidade)
             raise RuntimeError("pagamento recusado")
@@ -44,14 +49,3 @@ class CheckoutService:
         self._nota.emitir(produto_id, quantidade, valor_total)
 
         return {"status": "concluido", "valor_total": valor_total}
-
-
-class LojaController:
-    def __init__(self):
-        self._checkout = CheckoutService()
-
-    def receber_pedido_do_carrinho(self, request: dict) -> dict:
-        return self._checkout.fechar_pedido(
-            request["produto_id"], request["quantidade"], request["valor"],
-            request["estado"], request["dados_pagamento"],
-        )

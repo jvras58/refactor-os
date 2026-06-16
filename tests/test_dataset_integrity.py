@@ -7,6 +7,7 @@ import pytest
 
 from app.core.schemas import BadSmellType, CriticTruthEntry, GroundTruthEntry
 
+
 @pytest.fixture
 def dataset_paths(dataset_root):
     return {

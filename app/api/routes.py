@@ -11,7 +11,6 @@ from app.api.controllers.evaluation_controller import (
     evaluate_detector,
     evaluate_refactor,
 )
-from app.api.controllers.knowledge_controller import sync_knowledge
 from app.core.schemas import (
     CriticMetrics,
     DetectorMetrics,
@@ -38,7 +37,6 @@ routerAPI.add_api_route(
 routerAPI.add_api_route(
     "/evaluate/all", evaluate_all, methods=["POST"], response_model=FullEvaluationReport, tags=["evaluation"]
 )
-routerAPI.add_api_route("/knowledge/sync", sync_knowledge, methods=["POST"], tags=["knowledge"])
 
 
 routerDash = APIRouter(prefix="", tags=["dashboard"])

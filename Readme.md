@@ -38,7 +38,7 @@ app/
 ├── db/session.py                  # PostgresDb compartilhado (Agno — só sessões/traces)
 ├── skills/                        # 5 SKILL.md (1 por pattern) — substituem o antigo RAG via PgVector
 ├── services/                      # refactor / evaluation / quality_checks
-├── tools/                         # ast, pattern_registry, diff, syntax
+├── tools/                         # ast, diff, syntax
 ├── utils/                         # retry helper (backoff em 429 do Mistral)
 ├── templates/                     # dashboard.html (Jinja2)
 └── main.py                        # FastAPI ASGI entry point

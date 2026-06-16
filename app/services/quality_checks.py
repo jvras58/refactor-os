@@ -10,6 +10,7 @@ import ast
 from typing import Any
 
 from app.core.schemas import DesignPatternType
+from app.tools.logic_signals import analyze_logic_preservation
 from app.tools.syntax_tools import check_syntax
 
 
@@ -63,26 +64,55 @@ def api_preservation(original: str, refactored: str) -> dict[str, Any]:
     }
 
 
+def behavior_preservation(original: str, refactored: str) -> dict[str, Any]:
+    """Check that no behavioural token was silently dropped.
+
+    Uses the AST logic signals: a faithful refactoring keeps the same raised
+    exceptions and the same literals (return values, error messages). A dropped
+    ``raise`` or a vanished literal is a strong sign that a branch/rule was lost
+    — e.g. turning ``else: raise ValueError(...)`` into an implicit ``KeyError``.
+    """
+    report = analyze_logic_preservation(original, refactored)
+    if report.refactored_parse_error:
+        return {"preserved": False, "lost_raises": [], "lost_literals": [],
+                "reason": "refactored code has a syntax error"}
+    return {
+        "preserved": not report.lost_raises and not report.lost_literals,
+        "lost_raises": report.lost_raises,
+        "lost_literals": report.lost_literals,
+        "lost_calls": report.lost_calls,
+    }
+
+
 def assess_refactoring(
     original: str,
     refactored: str,
     applied_pattern: DesignPatternType,
     expected_pattern: DesignPatternType,
 ) -> dict[str, Any]:
-    """Aggregate the three objective checks into a single verdict.
+    """Aggregate the objective checks into a single verdict.
 
-    `is_correct` requires all three: correct pattern, valid syntax and preserved public API.
+    ``is_correct`` requires: correct pattern, valid syntax, preserved public API
+    **and** preserved behaviour (no dropped exceptions or literals). The last
+    axis stops a refactoring that silently removes a branch from counting as
+    correct, even when the public signature is kept by a thin wrapper.
     """
     pattern_ok = pattern_matches(applied_pattern, expected_pattern)
     syntax = check_syntax(refactored)
     syntax_ok = bool(syntax.get("is_valid"))
     api = api_preservation(original, refactored)
     api_ok = bool(api.get("preserved"))
+    behavior = behavior_preservation(original, refactored) if syntax_ok else {"preserved": False}
+    behavior_ok = bool(behavior.get("preserved"))
+    logic_ok = api_ok and behavior_ok
     return {
         "pattern_correct": pattern_ok,
         "syntax_valid": syntax_ok,
-        "logic_preserved": api_ok,
-        "is_correct": pattern_ok and syntax_ok and api_ok,
+        "api_preserved": api_ok,
+        "behavior_preserved": behavior_ok,
+        "logic_preserved": logic_ok,
+        "is_correct": pattern_ok and syntax_ok and logic_ok,
         "syntax_detail": syntax,
         "api_detail": api,
+        "behavior_detail": behavior,
     }

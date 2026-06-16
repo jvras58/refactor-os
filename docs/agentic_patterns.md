@@ -211,6 +211,57 @@ enxuto.
 
 ---
 
+### 17 · Stateless agents (sem PostgresDb)
+
+**Decisão:** os 3 agentes do pipeline são construídos **sem `db=`**. O Agno
+aceita `Agent(model=..., parser_model=..., tools=..., output_schema=...)`
+sem o parâmetro de banco, e quando isso acontece o agente fica stateless por
+chamada — `agent.db` é `None` e nenhuma sessão/trace é persistida.
+
+**Como verifiquei que era seguro remover:**
+
+```
+$ grep -rE 'session_id|add_history|memory|read_chat_history|enable_user_memories|enable_session_summaries' app/
+(zero hits)
+```
+
+Nenhum lugar do código exercitava qualquer feature do Agno que dependa do `db`.
+O `PostgresDb` antigo só servia ao RAG via `PgVector` — e o RAG já tinha saído
+junto na §16 (skills substituíram o registry).
+
+**Por que sessões/history/memory não trazem valor no nosso caso:**
+
+| Feature do Agno | Pra que serve | Por que NÃO se aplica aqui |
+|---|---|---|
+| `session_id` + history persistido | Continuar uma conversa entre chamadas separadas (chatbot, assistente interativo). | Cada `POST /refactor` é atômico: recebe código, processa, devolve resultado. Não há continuidade entre requests. |
+| `add_history_to_context=True` | Agente vê as N últimas mensagens do mesmo `session_id`. | A reflection loop **parece** multi-turno, mas é coordenada **em Python** pelo `RefactorService.run()` — quando o Critic reprova, a `critique` vai pro próximo prompt do Recommender como string injetada (via `prior_critique` em `refactor_service.py`). Garante (i) ordem fixa, (ii) número exato de iterações, (iii) cada estágio mensurável independente — as 3 garantias que motivaram não usar `Team` da Agno. |
+| `enable_user_memories` (Mem0-like) | Extrair fatos persistentes sobre o usuário ("prefere TypeScript", "trabalha com Django"). | Não há "usuário" persistente — o cenário acadêmico processa arquivos do `dataset/` ou amostras ad-hoc enviadas via API. `RefactorRequest` nem tem `user_id`. |
+| `enable_session_summaries` | Resumo automático ao final de sessão longa. | Sessão de 1 request não tem o que resumir. |
+| Traces no DB | Observabilidade Agno-native em produção. | Não há produção. Os `logger.exception` / `logger.warning` em `RefactorService` + a saída do `/evaluate/all` (gera `evaluation.json` com per-file) já cobrem debug e medição. |
+
+**Custo de manter um banco que não é usado:**
+- Container Postgres no `compose.yml` + volume `pgdata`.
+- Dependências `psycopg[binary]` e `sqlalchemy` no `pyproject.toml`.
+- `DB_URL` no `.env` (mais um setup pra usuário acertar).
+- `app/db/session.py` + `get_db()` espalhado em 3 factories.
+- Avaliação fica menos reproduzível (rastros de runs anteriores no banco entre `pytest` consecutivos, a menos que alguém lembre de truncar tabelas).
+
+**Quando reverter essa decisão:**
+
+1. **UI interativa** onde usuário discute a refatoração em turnos ("não, prefere essa versão com dataclass" → agente lembra da iteração anterior) — aí `session_id` faz sentido.
+2. **Auth/multi-usuário** com histórico por pessoa — aí `enable_user_memories` faz sentido.
+3. **Observabilidade de produção** com tracing Agno-native em vez de só logs estruturados — aí o `db=` volta pra capturar runs.
+
+Pra "sistema acadêmico stateless que avalia agentes em isolamento", **YAGNI**.
+Se um dia o caso de uso mudar, ressuscita do `git log` (commit `b5e1d09^`).
+
+**Arquivos afetados:** removido `app/db/session.py`, `db=get_db()` dos 3
+agentes, `Settings.db_url`, `DB_URL` do `.env.example`, serviço `postgres` +
+volume `pgdata` do `compose.yml`, deps `psycopg[binary]` e `sqlalchemy` do
+`pyproject.toml`.
+
+---
+
 ### 12 · Exception Handling and Recovery
 
 **Problema resolvido:** Qualquer falha de rede, timeout na Groq, ou resposta malformada do LLM

@@ -1,17 +1,25 @@
-"""Montagem de pizza com varias opcoes de customizacao."""
+"""Montagem de notificacao push para enviar via APNs (iOS) ou FCM (Android)."""
 
 
-class Pizza:
-    def __init__(self, tamanho, borda=None, queijo_extra=False,
-                 cobertura_1=None, cobertura_2=None, cobertura_3=None,
-                 molho="tomate", ponto_forno="normal"):
-        self.tamanho = tamanho
-        self.borda = borda
-        self.queijo_extra = queijo_extra
-        self.coberturas = [c for c in (cobertura_1, cobertura_2, cobertura_3) if c]
-        self.molho = molho
-        self.ponto_forno = ponto_forno
+class NotificacaoPush:
+    def montar_apns(self, titulo, corpo, opcoes: dict | None = None):
+        opcoes = opcoes or {}
+        payload = {"aps": {"alert": {"title": titulo, "body": corpo}}}
+        if "badge" in opcoes:
+            payload["aps"]["badge"] = opcoes["badge"]
+        if "som" in opcoes:
+            payload["aps"]["sound"] = opcoes["som"]
+        if "dados_customizados" in opcoes:
+            payload.update(opcoes["dados_customizados"])
+        return payload
 
-
-# chamada — precisa passar None nas posicoes que nao quer usar
-pizza = Pizza("grande", None, True, "calabresa", None, None, "tomate", "bem-passada")
+    def montar_fcm(self, titulo, corpo, opcoes: dict | None = None):
+        opcoes = opcoes or {}
+        payload = {"notification": {"title": titulo, "body": corpo}}
+        if "som" in opcoes:
+            payload["android"] = {"notification": {"sound": opcoes["som"]}}
+        if "badge" in opcoes:
+            payload.setdefault("data", {})["badge"] = str(opcoes["badge"])
+        if "dados_customizados" in opcoes:
+            payload.setdefault("data", {}).update(opcoes["dados_customizados"])
+        return payload

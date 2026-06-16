@@ -1,24 +1,30 @@
-"""Ordenacao de uma lista de produtos por criterio escolhido pelo usuario."""
+"""Recorte de imagem de acordo com o tipo de arquivo enviado."""
 
 
-class CatalogoService:
-    def ordenar(self, produtos: list[dict], criterio: str) -> list[dict]:
-        if criterio == "nome":
-            return sorted(produtos, key=lambda p: p["nome"])
-        elif criterio == "preco":
-            return sorted(produtos, key=lambda p: p["preco"])
-        elif criterio == "data_cadastro":
-            return sorted(produtos, key=lambda p: p["data_cadastro"])
-        elif criterio == "mais_vendidos":
-            return sorted(produtos, key=lambda p: p["vendas"], reverse=True)
+class RecortadorImagem:
+    def recortar(self, tipo_arquivo: str, imagem, area: dict):
+        if tipo_arquivo == "gif":
+            return self._recortar_gif_animado(imagem, area)
         else:
-            raise ValueError(f"criterio de ordenacao desconhecido: {criterio}")
+            return self._recortar_imagem_estatica(imagem, area)
+
+    def _recortar_gif_animado(self, imagem, area: dict):
+        x, y, largura, altura = area["x"], area["y"], area["largura"], area["altura"]
+        quadros_recortados = [
+            quadro.crop((x, y, x + largura, y + altura)) for quadro in imagem.quadros
+        ]
+        return self._remontar_gif(quadros_recortados, imagem.duracao_quadro)
+
+    def _recortar_imagem_estatica(self, imagem, area: dict):
+        x, y, largura, altura = area["x"], area["y"], area["largura"], area["altura"]
+        return imagem.crop((x, y, x + largura, y + altura))
+
+    def _remontar_gif(self, quadros, duracao_quadro): ...
 
 
-class VitrineController:
+class EditorFotos:
     def __init__(self):
-        self._catalogo = CatalogoService()
+        self._recortador = RecortadorImagem()
 
-    def montar_vitrine(self, produtos: list[dict], criterio_usuario: str) -> list[dict]:
-        produtos_ordenados = self._catalogo.ordenar(produtos, criterio_usuario)
-        return produtos_ordenados[:20]
+    def aplicar_recorte_usuario(self, imagem, tipo_arquivo, area_selecionada: dict):
+        return self._recortador.recortar(tipo_arquivo, imagem, area_selecionada)

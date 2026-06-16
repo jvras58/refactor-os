@@ -105,7 +105,7 @@
     "file": "code_smell/god-class/example_1.py",
     "smells": [
       "God Class",
-      "Facade/SRP"
+      "Facade"
     ],
     "evidencias": [
       {
@@ -122,7 +122,7 @@
     "file": "code_smell/god-class/example_2.py",
     "smells": [
       "God Class",
-      "Facade/SRP"
+      "Facade"
     ],
     "evidencias": [
       {
@@ -139,7 +139,7 @@
     "file": "code_smell/god-class/example_3.py",
     "smells": [
       "God Class",
-      "Facade/SRP"
+      "Facade"
     ],
     "evidencias": [
       {
@@ -235,9 +235,9 @@
     ],
     "evidencias": [
       {
-        "local": "calcular_desconto",
+        "local": "ProcessadorImagemUpload.processar",
         "linhas": [
-          4,
+          7,
           17
         ],
         "relacionado_a": "Complex/Long Switch Statements"
@@ -252,10 +252,10 @@
     ],
     "evidencias": [
       {
-        "local": "CatalogoService.ordenar",
+        "local": "RecortadorImagem.recortar",
         "linhas": [
           5,
-          15
+          9
         ],
         "relacionado_a": "Complex/Long Switch Statements"
       }
@@ -269,10 +269,10 @@
     ],
     "evidencias": [
       {
-        "local": "validar_senha",
+        "local": "CalculadoraNotaTentativas.calcular",
         "linhas": [
-          4,
-          17
+          5,
+          18
         ],
         "relacionado_a": "Complex/Long Switch Statements"
       }
@@ -281,58 +281,82 @@
   {
     "file": "patterns/builder/example_1.py",
     "smells": [
-      "Long Parameter List",
       "Builder"
     ],
     "evidencias": [
       {
-        "local": "criar_conexao_banco",
+        "local": "EnviadorInscricaoCurso.enviar_multipart",
         "linhas": [
-          4,
-          11
+          5,
+          31
         ],
-        "relacionado_a": "Long Parameter List"
+        "relacionado_a": "Builder"
+      },
+      {
+        "local": "EnviadorInscricaoCurso.enviar_json",
+        "linhas": [
+          33,
+          38
+        ],
+        "relacionado_a": "Builder"
       }
-    ]
+    ],
+    "observacao": "Sem lista longa de parametros (dados agrupados em dict), sem god class, sem duplicacao, sem switch. O problema e a montagem manual e propensa a erro do corpo multipart (boundary, headers) — exatamente o que um Builder encapsula."
   },
   {
     "file": "patterns/builder/example_2.py",
     "smells": [
-      "Long Parameter List",
       "Builder"
     ],
     "evidencias": [
       {
-        "local": "Pizza.__init__",
+        "local": "NotificacaoPush.montar_apns",
         "linhas": [
           5,
-          13
+          14
         ],
-        "relacionado_a": "Long Parameter List"
+        "relacionado_a": "Builder"
+      },
+      {
+        "local": "NotificacaoPush.montar_fcm",
+        "linhas": [
+          16,
+          25
+        ],
+        "relacionado_a": "Builder"
       }
-    ]
+    ],
+    "observacao": "Cada plataforma exige uma estrutura de payload aninhada e parcialmente opcional (badge, som, dados customizados) montada campo a campo — caso classico de Builder, sem se encaixar em nenhum dos 4 smells."
   },
   {
     "file": "patterns/builder/example_3.py",
     "smells": [
-      "Long Parameter List",
       "Builder"
     ],
     "evidencias": [
       {
-        "local": "ClienteHttp.montar_requisicao",
+        "local": "CartaoContato.montar_vcard",
         "linhas": [
           5,
-          11
+          15
         ],
-        "relacionado_a": "Long Parameter List"
+        "relacionado_a": "Builder"
+      },
+      {
+        "local": "CartaoContato.montar_qrcode_payload",
+        "linhas": [
+          17,
+          23
+        ],
+        "relacionado_a": "Builder"
       }
-    ]
+    ],
+    "observacao": "Construcao condicional de um formato de saida (vCard) a partir de campos opcionais (empresa, cargo) — beneficia-se de um Builder mesmo recebendo so um dict de entrada."
   },
   {
-    "file": "patterns/facade-srp/example_1.py",
+    "file": "patterns/facade/example_1.py",
     "smells": [
-      "Facade/SRP"
+      "Facade"
     ],
     "evidencias": [
       {
@@ -341,15 +365,16 @@
           30,
           51
         ],
-        "relacionado_a": "Facade/SRP"
+        "relacionado_a": "Facade"
       }
-    ]
+    ],
+    "observacao": "Cliente orquestra 4 subsistemas diretamente, sem ponto unico de entrada — nao e God Class (LojaController e pequena), o problema e estrutural/arquitetural."
   },
   {
-    "file": "patterns/facade-srp/example_2.py",
+    "file": "patterns/facade/example_2.py",
     "smells": [
       "God Class",
-      "Facade/SRP"
+      "Facade"
     ],
     "evidencias": [
       {
@@ -363,9 +388,9 @@
     ]
   },
   {
-    "file": "patterns/facade-srp/example_3.py",
+    "file": "patterns/facade/example_3.py",
     "smells": [
-      "Facade/SRP"
+      "Facade"
     ],
     "evidencias": [
       {
@@ -374,9 +399,10 @@
           4,
           18
         ],
-        "relacionado_a": "Facade/SRP"
+        "relacionado_a": "Facade"
       }
-    ]
+    ],
+    "observacao": "Sequencia fragil de 6 chamadas de baixo nivel a um gateway, direto numa funcao solta — nao ha classe inchada, so falta um ponto de entrada simplificado."
   },
   {
     "file": "patterns/template-method/example_1.py",
@@ -386,18 +412,26 @@
     ],
     "evidencias": [
       {
-        "local": "ProcessadorPedidoOnline.processar",
+        "local": "ProcessadorQuestionarioObjetivo.processar",
         "linhas": [
           5,
-          11
+          20
         ],
         "relacionado_a": "Duplicated Code"
       },
       {
-        "local": "ProcessadorPedidoLoja.processar",
+        "local": "ProcessadorRedacao.processar",
         "linhas": [
-          19,
-          25
+          24,
+          38
+        ],
+        "relacionado_a": "Duplicated Code"
+      },
+      {
+        "local": "ProcessadorExercicioProgramacao.processar",
+        "linhas": [
+          42,
+          56
         ],
         "relacionado_a": "Duplicated Code"
       }
@@ -411,18 +445,18 @@
     ],
     "evidencias": [
       {
-        "local": "TesteIntegracaoApi.executar",
+        "local": "ImportadorUsuariosCSV.importar",
         "linhas": [
           5,
-          13
+          24
         ],
         "relacionado_a": "Duplicated Code"
       },
       {
-        "local": "TesteIntegracaoBanco.executar",
+        "local": "ImportadorUsuariosAPIExterna.importar",
         "linhas": [
-          23,
-          31
+          28,
+          47
         ],
         "relacionado_a": "Duplicated Code"
       }
@@ -436,17 +470,17 @@
     ],
     "evidencias": [
       {
-        "local": "ImportadorLoteCSV.importar",
+        "local": "PublicadorVideo.publicar",
         "linhas": [
           5,
-          15
+          17
         ],
         "relacionado_a": "Duplicated Code"
       },
       {
-        "local": "ImportadorLoteXML.importar",
+        "local": "PublicadorDocumento.publicar",
         "linhas": [
-          23,
+          21,
           33
         ],
         "relacionado_a": "Duplicated Code"
@@ -457,7 +491,7 @@
     "file": "mixed/example_1.py",
     "smells": [
       "God Class",
-      "Facade/SRP",
+      "Facade",
       "Long Parameter List",
       "Builder",
       "Complex/Long Switch Statements",
@@ -539,7 +573,7 @@
     "file": "mixed/example_3.py",
     "smells": [
       "God Class",
-      "Facade/SRP",
+      "Facade",
       "Complex/Long Switch Statements",
       "Strategy Pattern",
       "Duplicated Code",

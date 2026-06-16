@@ -1,37 +1,57 @@
-"""Execucao de testes de integracao contra diferentes recursos."""
+"""Importacao em massa de usuarios para a plataforma, a partir de diferentes origens."""
 
 
-class TesteIntegracaoApi:
-    def executar(self):
-        self._log("iniciando teste")
-        contexto = self._preparar_ambiente()
-        try:
-            resultado = self._chamar_api(contexto)
-            self._verificar_resultado(resultado)
-        finally:
-            self._limpar_ambiente(contexto)
-        self._log("teste finalizado")
+class ImportadorUsuariosCSV:
+    def importar(self, origem):
+        dados_brutos = ler_arquivo_csv(origem)
+        if not validar_formato_csv(dados_brutos):
+            raise ValueError("formato de CSV invalido")
 
-    def _preparar_ambiente(self): ...
-    def _chamar_api(self, contexto): ...
-    def _verificar_resultado(self, resultado): ...
-    def _limpar_ambiente(self, contexto): ...
-    def _log(self, mensagem): ...
+        usuarios = []
+        erros = []
+        for linha in dados_brutos:
+            usuario = {
+                "nome": linha["nome"].strip(),
+                "email": linha["email"].strip().lower(),
+                "documento": normalizar_documento(linha["documento"]),
+            }
+            if usuario_ja_existe(usuario["email"]):
+                erros.append(f"usuario duplicado: {usuario['email']}")
+                continue
+            criar_ou_atualizar_usuario(usuario)
+            usuarios.append(usuario)
+
+        return gerar_relatorio_importacao(usuarios, erros)
 
 
-class TesteIntegracaoBanco:
-    def executar(self):
-        self._log("iniciando teste")
-        contexto = self._preparar_conexao()
-        try:
-            resultado = self._executar_query(contexto)
-            self._verificar_linhas(resultado)
-        finally:
-            self._fechar_conexao(contexto)
-        self._log("teste finalizado")
+class ImportadorUsuariosAPIExterna:
+    def importar(self, origem):
+        dados_brutos = consultar_api_externa(origem)
+        if not validar_resposta_api(dados_brutos):
+            raise ValueError("resposta da API em formato invalido")
 
-    def _preparar_conexao(self): ...
-    def _executar_query(self, contexto): ...
-    def _verificar_linhas(self, resultado): ...
-    def _fechar_conexao(self, contexto): ...
-    def _log(self, mensagem): ...
+        usuarios = []
+        erros = []
+        for registro in dados_brutos:
+            usuario = {
+                "nome": registro["full_name"].strip(),
+                "email": registro["email_address"].strip().lower(),
+                "documento": normalizar_documento(registro["document_id"]),
+            }
+            if usuario_ja_existe(usuario["email"]):
+                erros.append(f"usuario duplicado: {usuario['email']}")
+                continue
+            criar_ou_atualizar_usuario(usuario)
+            usuarios.append(usuario)
+
+        return gerar_relatorio_importacao(usuarios, erros)
+
+
+def ler_arquivo_csv(origem): ...
+def validar_formato_csv(dados): ...
+def consultar_api_externa(origem): ...
+def validar_resposta_api(dados): ...
+def normalizar_documento(documento): ...
+def usuario_ja_existe(email): ...
+def criar_ou_atualizar_usuario(usuario): ...
+def gerar_relatorio_importacao(usuarios, erros): ...

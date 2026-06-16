@@ -1,11 +1,13 @@
 """Orchestrates the deterministic Detector → Recommender → Critic pipeline.
 
-Drives the explicit reflection loop (up to N iterations) outside the Team abstraction
-so the academic evaluation can measure each stage independently.
+Drives the explicit reflection loop (up to N iterations) outside the Team
+abstraction so the academic evaluation can measure each stage independently.
 
-Each agent uses parser_model to separate tool calling (main model, no json_mode)
-from structured output parsing (parser_model, no tools) — resolving the Groq
-limitation that prevents combining both in a single request.
+Each agent is built with a ``parser_model`` (see ``app/core/llm.py``) so the
+main Mistral call handles tool/skill calling without forced json_mode, while a
+second Mistral call extracts the Pydantic structured output. ``arun_typed``
+wraps that with two extra layers of defense: rate-limit backoff on 429s and a
+retry when the parser still returns raw text.
 """
 from __future__ import annotations
 
@@ -25,7 +27,7 @@ from app.core.schemas import (
     ReflectionReview,
     SmellDetection,
 )
-from app.utils.retry import arun_with_backoff
+from app.utils.retry import arun_typed
 
 logger = logging.getLogger(__name__)
 
@@ -59,11 +61,9 @@ class RefactorService:
             "Use obrigatoriamente `ast_analyzer_tool` antes de concluir.\n\n"
             f"```python\n{source_code}\n```"
         )
-        response = await arun_with_backoff(self._detector.arun, prompt, label="Detector")
-        content = response.content
-        if not isinstance(content, SmellDetection):
-            raise ValueError(f"Detector retornou tipo inesperado: {type(content)} — {content}")
-        return content
+        return await arun_typed(
+            self._detector.arun, prompt, schema=SmellDetection, label="Detector"
+        )
 
     async def propose(
         self,
@@ -92,11 +92,9 @@ class RefactorService:
             "Retorne RefactoringProposal. "
             "No campo `refactored_code` use apenas aspas simples ou duplas — nunca aspas triplas."
         )
-        response = await arun_with_backoff(self._recommender.arun, prompt, label="Recommender")
-        content = response.content
-        if not isinstance(content, RefactoringProposal):
-            raise ValueError(f"Recommender retornou tipo inesperado: {type(content)} — {content}")
-        return content
+        return await arun_typed(
+            self._recommender.arun, prompt, schema=RefactoringProposal, label="Recommender"
+        )
 
     async def review(
         self,
@@ -113,11 +111,9 @@ class RefactorService:
             "Avalie os 5 critérios das instruções e retorne ReflectionReview. "
             "Defina `final_validated_code=null`."
         )
-        response = await arun_with_backoff(self._critic.arun, prompt, label="Critic")
-        content = response.content
-        if not isinstance(content, ReflectionReview):
-            raise ValueError(f"Critic retornou tipo inesperado: {type(content)} — {content}")
-        return content
+        return await arun_typed(
+            self._critic.arun, prompt, schema=ReflectionReview, label="Critic"
+        )
 
     async def run(self, request: RefactorRequest) -> RefactorResult:
         try:

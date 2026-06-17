@@ -13,10 +13,10 @@ Estes padrões já estão presentes na arquitetura desde a concepção do projet
 |---|---------|----------------|
 | 1 | **Prompt Chaining (Pipeline)** | `RefactorService`: sequência determinística Detector → Recommender → Critic em `refactor_service.py` |
 | 4 | **Reflection** | Loop Generator-Critic com `MAX_REFLECTION_ITERATIONS` em `RefactorService.run()` |
-| 5 | **Tool Use (Function Calling)** | `ast_analyzer_tool`, `diff_generator_tool`, `syntax_checker_tool` em `app/tools/` |
+| 5 | **Tool Use (Function Calling)** | `diff_generator_tool`, `syntax_checker_tool` em `app/tools/` (o Detector não usa tools — o prior heurístico é computado fora do Agno e injetado no prompt, ver §17) |
 | 7 | **Multi-Agent Collaboration** | Três agentes especializados (`DetectorAgent`, `RecommenderAgent`, `CriticAgent`) com papéis exclusivos |
 | 14 | **Skills + RAG (lado a lado)** | `agno.skills.Skills(loaders=[LocalSkills("app/skills")])` injetado no Recommender (estrutura canônica via `get_skill_instructions`) **e** agentic RAG nativo (`Agent(knowledge=get_solution_knowledge(), search_knowledge=True)`) sobre PgVector (exemplos via `search_knowledge_base`). Ver §15 e §16. |
-| 19 | **Evaluation and Monitoring** | Endpoints `/evaluate/{detector,refactor,critic,all}` — métricas independentes por agente contra `dataset/ground_truth.json` e `dataset/critic_truth.json` (ou amostras enviadas ad-hoc) |
+| 19 | **Evaluation and Monitoring** | Endpoints `/evaluate/{detector,refactor,critic,all}` — métricas independentes por agente contra `dataset/ground_truth_detector.json` (multi-label) ou amostras enviadas ad-hoc |
 
 ---
 
@@ -95,14 +95,13 @@ app/skills/
 ├── strategy-pattern/SKILL.md
 ├── builder-parameter-object/SKILL.md
 ├── facade-srp/SKILL.md
-├── dependency-injection/SKILL.md
+├── dependency-injection/SKILL.md   # legado — Tight Coupling/DI saiu do escopo atual
 └── template-method/SKILL.md
 ```
 
 Cada `SKILL.md` tem YAML frontmatter (`name`, `description`) + corpo com:
-intent, estrutura canônica, regras estritas, exemplo problema→solução completo
-(extraído de `dataset/examples/` + `dataset/solutions/correct/`), justificativa
-arquitetural numerada e benefícios esperados. **Apenas a `description` curta
+intent, estrutura canônica, regras estritas, exemplo problema→solução completo,
+justificativa arquitetural numerada e benefícios esperados. **Apenas a `description` curta
 vai pro system prompt o tempo todo**; o corpo do SKILL só entra no contexto
 quando o agente chama `get_skill_instructions`.
 
@@ -118,8 +117,10 @@ ganho aqui — todo Critic precisa ver os 3.
 
 O baseline já marcava F1 = 1.000 sobre 20 amostras. Adicionar exemplos ali só
 introduz ruído. Decisão validada empiricamente: a primeira tentativa de
-few-shot no Detector causou regressão (modelo retornando string vazia em vez de
-`SmellDetection`) e foi revertida.
+few-shot no Detector causou regressão (modelo retornando string vazia em vez do
+schema estruturado) e foi revertida. No multi-detector atual, o "exemplo" de
+cada tipo é a própria definição canônica (`SMELL_DEFINITIONS`/`PATTERN_DEFINITIONS`)
+injetada por chamada.
 
 **Por que skills em vez de manter os exemplos inline no prompt do Recommender?**
 1. **Prompt base 60% menor.** Antes, os 2 exemplos inline custavam ~3k chars
@@ -159,9 +160,12 @@ HTTP 500 sem informação útil para o cliente ou para o pipeline de avaliação
 **Implementação:** Cada estágio do `RefactorService` (`detect`, `propose`, `review`) passou a
 capturar exceções e retornar fallbacks estruturados:
 
-- `detect()`: em caso de falha, retorna `SmellDetection(has_smell=False, smell_type=NO_SMELL, reasoning="[erro]")`.
+- `detect()`: código que não compila levanta `InvalidPythonCodeError` (fase 1, sem gastar LLM) —
+  o `run()` a converte em `RefactorResult(error=...)` e a API `/detect` em HTTP 422; outras
+  falhas viram `RefactorResult(error="Detector falhou...")`.
 - `propose()` e `review()`: em caso de falha, o `run()` encerra a iteração atual e retorna
-  `RefactorResult(approved=False, iterations=N)` com `error` preenchido — sem propagar 500.
+  `RefactorResult(approved=False, iterations=N)` com `error` preenchido (preservando o scan
+  e os `detected_problems` já obtidos) — sem propagar 500.
 - Todos os erros são logados com `logger.exception(...)` para rastreabilidade.
 
 O campo `error: str | None` foi adicionado a `RefactorResult` para surfaçar a mensagem ao cliente.
@@ -212,11 +216,11 @@ corpus de soluções recuperável semanticamente; o playbook fixo do pattern seg
 
 ### 17 · Matriz heurística como prior determinístico do Detector
 
-**Problema resolvido:** o Detector julgava o smell a partir de métricas cruas devolvidas
-por `ast_analyzer_tool`, deixando toda a classificação a cargo do LLM (probabilístico).
+**Problema resolvido:** deixar toda a classificação de smells a cargo do LLM
+(probabilístico), sem evidência estrutural objetiva no prompt.
 
 **Implementação:** [`app/tools/heuristic_engine.py`](../app/tools/heuristic_engine.py) —
-uma matriz determinística que parseia o AST e **ranqueia os 5 smells do escopo** por sinais
+uma matriz determinística que parseia o AST e **pontua os 4 smells do escopo** por sinais
 estruturais explícitos:
 
 | Smell | Sinal heurístico |
@@ -224,24 +228,19 @@ estruturais explícitos:
 | Complex/Long Switch | ramos de `if/elif` ou `match/case` ≥ 3 |
 | Long Parameter List | função com ≥ 5 parâmetros |
 | God Class | classe com > 20 membros (métodos + atributos `self.`) |
-| Tight Coupling | colaborador concreto instanciado dentro da classe (`self.x = Mod.Foo(...)`) |
 | Duplicated Code | mesmo método substancial reimplementado em ≥ 2 classes irmãs |
 
-`RefactorService.detect()` calcula `score_smells()` **fora do Agno** e injeta o resultado
-ranqueado no prompt como "Prior da matriz heurística". O LLM **confirma ou refuta** o
-candidato de maior score e produz o `reasoning` explicável — o prior não decide sozinho
-(decisão "prior + LLM confirma", não "Detector 100% determinístico").
+`MultiDetectorService` calcula `score_all_smells()` **fora do Agno** (fase 2) — um
+`SmellHeuristicSignal` por smell, sempre os 4, mesmo sem evidência — e injeta o sinal
+relevante no prompt de **cada uma das 8 chamadas** da fase 3 (para patterns, o sinal do
+smell irmão, com a ressalva de que o pattern não depende dele). O LLM **confirma ou
+refuta** com justificativa — o prior informa, mas nunca pula uma checagem (decisão
+"prior + LLM confirma", não "Detector 100% determinístico").
 
-**Resultado:** 10/10 de type-accuracy e 0 falsos positivos sobre o dataset rotulado
-(20 arquivos), travado em [`tests/test_heuristic_engine.py`](../tests/test_heuristic_engine.py).
+O antigo `ast_analyzer_tool` foi removido junto com o detector single-label: ele
+reparseava o mesmo AST que a matriz já analisa, e o multi-detector não usa tools.
 
-> **TODO (futuro):** remover `ast_analyzer_tool` do Detector. Com o prior heurístico
-> injetado no prompt, o tool ficou redundante — ele reparseia o mesmo AST que a matriz
-> já analisou. Antes de remover: confirmar que nenhum critério de avaliação depende do
-> tool ser chamado e ajustar `DETECTOR_INSTRUCTIONS` ([prompts.py](../app/core/prompts.py))
-> que hoje ainda manda "SEMPRE chame `ast_analyzer_tool`".
-
-**Arquivos:** `app/tools/heuristic_engine.py`, `app/services/refactor_service.py`,
+**Arquivos:** `app/tools/heuristic_engine.py`, `app/services/multi_detector_service.py`,
 `app/core/prompts.py`, `tests/test_heuristic_engine.py`.
 
 ---
@@ -268,8 +267,8 @@ como evidência forte. Como refatorações legítimas **reorganizam** a estrutur
 constantes/`raise`/chamadas, o sinal é de baixo ruído — o Critic ainda decide e pode
 justificar uma divergência com equivalente funcional.
 
-**Resultado:** sobre os 20 pares de `critic_truth`, **0 sinais falsos** nas 10 soluções
-corretas e **4/4** dos defeitos de `logic` sinalizados, travado em
+**Resultado:** refatorações fiéis não disparam sinal falso e defeitos de lógica
+(ramo/`raise` descartado) são sinalizados — travado com pares sintéticos em
 [`tests/test_logic_signals.py`](../tests/test_logic_signals.py).
 
 **Arquivos:** `app/tools/logic_signals.py`, `app/services/refactor_service.py`,
@@ -281,7 +280,7 @@ corretas e **4/4** dos defeitos de `logic` sinalizados, travado em
 
 | Pattern | Motivo do descarte |
 |---------|-------------------|
-| **2 · Routing** | Só há 5 smells e o Detector já classifica — um router seria duplicação. |
+| **2 · Routing** | Só há 4 smells + 4 patterns e o Detector já decide cada um individualmente — um router seria duplicação. |
 | **3 · Parallelization** | Fluxo é sequencial por dependência de dados (saída de cada estágio é input do próximo). |
 | **6 · Planning** | Escopo fixo (5 patterns, 1 refactor por arquivo). Não há plano multi-etapa a formular. |
 | **8 · Memory Management** | Sem memória de sessão/conversa entre requests. Há **retrieval** de conhecimento (Skills por nome + RAG semântico via PgVector — ver §16), mas nenhuma memória de longo prazo do usuário ou histórico de turnos. |

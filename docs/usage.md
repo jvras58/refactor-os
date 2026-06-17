@@ -9,10 +9,10 @@ Guia prático para subir o `refactor-os` e exercitar a pipeline.
 - Docker (opcional, só para empacotar o app)
 - Chave da Mistral (`MISTRAL_API_KEY`) — gratuita em [console.mistral.ai](https://console.mistral.ai) → **API Keys** → *Create API Key* (formato `oj2Z...`)
 
-> **Sem embeddings, sem HuggingFace, sem Postgres.** O conhecimento dos 5
-> patterns vive em `app/skills/<pattern>/SKILL.md` e é carregado sob demanda
-> pelo Recommender via Agno Skills. Os agentes são **stateless por chamada**
-> (Agno aceita `db=None`), então não precisam de sessão persistida.
+> O conhecimento dos patterns vive em `app/skills/<pattern>/SKILL.md` e é
+> carregado sob demanda pelo Recommender via Agno Skills. O Detector é
+> **stateless por chamada** (sem `db=`); o Recommender usa Postgres+pgvector
+> só para o RAG do corpus de soluções.
 > Justificativa em [`agentic_patterns.md` §16](agentic_patterns.md#16--skills-substituem-rag-decisão-arquitetural).
 
 ## 2. Setup
@@ -55,12 +55,12 @@ Base: `http://127.0.0.1:8000/api/v1`
 | Método | Rota               | O que faz                                                   |
 |--------|--------------------|-------------------------------------------------------------|
 | GET    | `/health`          | Liveness check.                                             |
-| POST   | `/detect`          | Executa **somente** o Detector — retorna `SmellDetection`.  |
+| POST   | `/detect`          | Executa **somente** o Detector multi-label — retorna `DetectionScanResult` (8 vereditos + heurística). Código inválido → `422`. |
 | POST   | `/refactor`        | Pipeline completa (Detector→Recommender→Critic + reflection). |
-| POST   | `/evaluate/detector` | Avalia o Detector (FP/FN). Body vazio → dataset; body com `samples` → código submetido. |
+| POST   | `/evaluate/detector` | Avalia o Detector (multi-label, FP/FN por tipo). Body vazio → dataset; body com `samples` → código submetido. |
 | POST   | `/evaluate/refactor` | Avalia o Recommender (qualidade/refatoração). Body vazio → dataset; body com `samples` → código submetido. |
-| POST   | `/evaluate/critic`  | Avalia o Critic (false accept/false reject). Body vazio → dataset; body com `samples` → código submetido. |
-| POST   | `/evaluate/all`     | Roda as 3 avaliações de uma vez. Body vazio → tudo no dataset; body com `detector`/`refactor`/`critic` → cada seção pode ir ad-hoc independentemente. |
+| POST   | `/evaluate/critic`  | Avalia o Critic (false accept/false reject). **Exige `samples`** — o dataset atual não traz soluções rotuladas. |
+| POST   | `/evaluate/all`     | Roda as 3 avaliações de uma vez. Detector/Refatorador sem seção caem no dataset; o Critic precisa da seção `critic` com `samples`. |
 
 > `POST /api/v1/knowledge/sync` indexa o corpus `app/knowledge/solutions/` no
 > pgvector (upsert idempotente). A tabela nasce **vazia** — chame esse endpoint
@@ -80,44 +80,47 @@ curl -X POST http://127.0.0.1:8000/api/v1/detect \
   }'
 ```
 
-Resposta (resumida):
+Resposta (`DetectionScanResult`, resumida — são 8 `type_results`, um por tipo):
 
 ```json
 {
-  "has_smell": true,
-  "smell_type": "Long Parameter List",
-  "line_start": 1,
-  "line_end": 1,
-  "affected_snippet": "def f(a,b,c,d,e,f): return a+b+c+d+e+f",
-  "reasoning": "Função com 6 parâmetros (>=5)..."
+  "heuristic_scan": {
+    "signals": {
+      "Long Parameter List": {"possible": true, "score": 0.6, "line_start": 1, "line_end": 1, "evidence": ["Função `f` com 6 parâmetros (limite 5)."]},
+      "God Class": {"possible": false, "score": 0.0}
+    }
+  },
+  "type_results": [
+    {"type_name": "Long Parameter List", "detected": true,
+     "evidencias": [{"local": "f", "linhas": [1, 1]}],
+     "reasoning": "Função com 6 parâmetros..."},
+    {"type_name": "God Class", "detected": false, "evidencias": [], "reasoning": "..."}
+  ]
 }
 ```
 
+> Cada chamada ao `/detect` custa **8 chamadas de LLM** (uma por smell/pattern).
+
 ### Passo 2 — Pipeline completa
-
-```bash
-curl -X POST http://127.0.0.1:8000/api/v1/refactor \
-  -H "Content-Type: application/json" \
-  -d @dataset/examples/02_long_parameter_list.py.json
-```
-
-Ou em Python:
 
 ```python
 import requests, pathlib
 
-src = pathlib.Path("dataset/examples/02_long_parameter_list.py").read_text()
+src = pathlib.Path("dataset/examples/code_smell/long-parameter-list/example_1.py").read_text()
 r = requests.post(
     "http://127.0.0.1:8000/api/v1/refactor",
-    json={"source_code": src, "file_name": "02_long_parameter_list.py"},
+    json={"source_code": src, "file_name": "example_1.py"},
 )
 result = r.json()
 print(result["approved"], result["iterations"])
+print(result["detected_problems"], result["target_pattern"])
 print(result["proposal"]["refactored_code"])
 ```
 
 Resposta (`RefactorResult`):
-- `detection` — `SmellDetection`.
+- `detection` — `DetectionScanResult` (scan multi-label completo).
+- `detected_problems` — lista dos smells/patterns detectados.
+- `target_smell` / `target_pattern` — o alvo escolhido para a refatoração.
 - `proposal` — `RefactoringProposal` (código refatorado + explicação).
 - `review` — `ReflectionReview` (aprovado ou crítica final).
 - `iterations` — quantas iterações de reflection rodaram.
@@ -125,26 +128,31 @@ Resposta (`RefactorResult`):
 
 ### Passo 3 — Avaliação empírica
 
-Cada agente é avaliado de forma independente. Sem body → roda sobre o dataset fixo;
-com `samples` no body → roda sobre o código submetido (rótulo esperado obrigatório).
+Detector e Refatorador: sem body → dataset fixo; com `samples` → código submetido.
+Critic: sempre com `samples` (rótulo esperado obrigatório).
 
 ```bash
-# Relatório completo dos três agentes sobre o dataset
-curl -X POST http://127.0.0.1:8000/api/v1/evaluate/all
+# Detector + Refatorador sobre o dataset (Critic é pulado sem samples)
+uv run python scripts/run_evaluation.py --detector --refactor
 
-# Avaliação do Detector sobre código submetido
+# Avaliação do Detector sobre código submetido (multi-label)
 curl -X POST http://127.0.0.1:8000/api/v1/evaluate/detector \
   -H "Content-Type: application/json" \
-  -d '{"samples":[{"name":"meu_teste","source_code":"def add(a,b): return a+b\n","expected_smell":"No Smell Detected"}]}'
+  -d '{"samples":[{"name":"meu_teste","source_code":"def add(a,b): return a+b\n","expected_problems":[]}]}'
 ```
 
-Resposta agregada (`/evaluate/all`):
+Resposta do Detector (`DetectorMetrics`):
 
 ```json
 {
-  "detector": { "total": 20, "precision": 1.0, "recall": 1.0, "per_file": [ ... ] },
-  "refactor": { "total": 10, "accuracy": 0.8, "pattern_accuracy": 0.9, "per_file": [ ... ] },
-  "critic":   { "total": 20, "accuracy": 0.9, "false_accept_rate": 0.1, "per_file": [ ... ] }
+  "total_files": 30,
+  "confusion": {"true_positive": 52, "false_negative": 6, "false_positive": 9, "true_negative": 173},
+  "precision": 0.85, "recall": 0.90, "f1": 0.87,
+  "exact_match_rate": 0.63,
+  "per_file": [
+    {"file": "mixed/example_1.py", "expected_problems": ["God Class", "Facade"],
+     "detected_problems": ["God Class"], "missing": ["Facade"], "extra": [], "exact_match": false}
+  ]
 }
 ```
 
@@ -154,30 +162,42 @@ das amostras por agente.
 ## 6. Uso programático (sem HTTP)
 
 ```python
+import asyncio
+
 from app.core.schemas import RefactorRequest
 from app.services.refactor_service import RefactorService
 
 service = RefactorService()
-result = service.run(RefactorRequest(source_code=open("script.py").read()))
-print(result.approved, result.proposal.applied_pattern)
+result = asyncio.run(service.run(RefactorRequest(source_code=open("script.py").read())))
+print(result.approved, result.detected_problems, result.target_pattern)
+```
+
+Só a detecção multi-label (sem Recommender/Critic — não precisa de Postgres):
+
+```python
+import asyncio
+
+from app.services.multi_detector_service import MultiDetectorService
+
+service = MultiDetectorService()
+scan = asyncio.run(service.detect(open("script.py").read()))
+print(service.compile(scan))   # ex.: ["God Class", "Facade"]
 ```
 
 ## 7. Expandindo o dataset (ground truth)
 
-1. Adicione `dataset/examples/NN_descricao.py` com o smell intencional.
-2. Acrescente uma entrada em `dataset/ground_truth.json`:
+1. Adicione o exemplo em `dataset/examples/<categoria>/example_N.py`.
+2. Acrescente uma entrada em `dataset/ground_truth_detector.json` — o caminho é
+   relativo a `dataset/examples/` e `problems` lista **todos** os smells/patterns
+   presentes (lista vazia = código limpo):
    ```json
    {
-     "file": "06_outro_smell.py",
-     "smell_type": "God Class",
-     "expected_pattern": "Facade/SRP",
-     "line_start": 10,
-     "line_end": 80
+     "file": "code_smell/god-class/example_4.py",
+     "problems": ["God Class", "Facade"]
    }
    ```
-3. Rode `POST /api/v1/evaluate/all` novamente.
-
-Veja `dataset/README.md` para detalhes da metodologia.
+3. Rode `uv run python scripts/run_evaluation.py --detector` (ou
+   `POST /api/v1/evaluate/detector`) novamente.
 
 ## 8. Testes
 
@@ -185,7 +205,8 @@ Veja `dataset/README.md` para detalhes da metodologia.
 uv run pytest
 ```
 
-Cobre as tools determinísticas (`ast`, `diff`, `syntax`).
+Cobre as tools determinísticas (`heuristic_engine`, `diff`, `syntax`, `logic_signals`),
+as fases determinísticas do multi-detector e as métricas de avaliação.
 Os agentes em si são exercitados pelo dataset de avaliação.
 
 ## 9. Variáveis de ambiente úteis
@@ -204,4 +225,6 @@ Os agentes em si são exercitados pelo dataset de avaliação.
 |--------------------------------------------|---------------------------------------------|------------------------------------------------------|
 | `MISTRAL_API_KEY is required`                 | `.env` não preenchido.                      | Preencha `MISTRAL_API_KEY` (gere em https://console.mistral.ai).  |
 | `401 Unauthorized` da Mistral                 | Chave inválida / revogada.                  | Gere uma nova em https://console.mistral.ai → API Keys.        |
+| `422` no `/detect`                          | Código enviado não compila como Python.    | Corrija a sintaxe — a fase 1 do detector valida com `ast.parse`. |
+| `/detect` demorado                          | São 8 chamadas de LLM por requisição (com throttle anti-429). | Esperado; use `scripts/run_multi_detector.py` (checkpoint resumível) para lotes. |
 | Reflection sempre estoura `iterations=3`   | Crítica do Critic não está sendo acionável. | Ajuste o prompt em `app/core/prompts.py`.            |

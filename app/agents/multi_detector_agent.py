@@ -1,8 +1,9 @@
-"""Pair Detector Agent — decides 2 independent smell/pattern types per call.
+"""Type Detector Agent — decides ONE smell/pattern type per call.
 
-Generic by design: the 2 type names/definitions are injected into the per-call
-prompt (see ``app/core/multi_detector_prompts.py``), not into static instructions.
-One agent instance is reused across the 4 paired calls of phase 3.
+Generic by design: the type name/definition is injected into the per-call prompt
+(see ``app/core/multi_detector_prompts.py``), not into static instructions. One
+agent instance is reused across the 8 individual calls of phase 3 (4 smells +
+4 patterns).
 
 Stateless on purpose: each call is an isolated yes/no judgment with no multi-turn
 memory and no RAG, unlike the Recommender (which needs Postgres+pgvector for
@@ -14,18 +15,18 @@ from __future__ import annotations
 from agno.agent import Agent
 
 from app.core.llm import build_main_model, build_parser_model
-from app.core.multi_detector_prompts import PAIR_DETECTOR_INSTRUCTIONS
-from app.core.multi_detector_schemas import PairedDetectionResponse
+from app.core.multi_detector_prompts import TYPE_DETECTOR_INSTRUCTIONS
+from app.core.multi_detector_schemas import TypeDetectionResult
 
 
-def build_pair_detector_agent() -> Agent:
+def build_type_detector_agent() -> Agent:
     return Agent(
-        name="Pair Detector Agent",
-        id="multi-detector-pair-agent",
-        role="Decide se cada um de 2 tipos independentes (smell ou pattern) está presente no código.",
+        name="Type Detector Agent",
+        id="multi-detector-type-agent",
+        role="Decide se UM tipo específico (smell ou pattern) está presente no código.",
         model=build_main_model(),
         parser_model=build_parser_model(),
-        instructions=PAIR_DETECTOR_INSTRUCTIONS,
-        output_schema=PairedDetectionResponse,
+        instructions=TYPE_DETECTOR_INSTRUCTIONS,
+        output_schema=TypeDetectionResult,
         markdown=False,
     )

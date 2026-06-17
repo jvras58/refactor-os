@@ -1,7 +1,7 @@
 """CLI para rodar o novo MultiDetectorService sobre os exemplos do dataset_2.
 
-Cada arquivo custa 4 chamadas reais de LLM (fase 3), throttled a 20s entre chamadas
-(``app.utils.retry``) — 30 arquivos = ~40+ minutos. Use ``--limit`` para testar com
+Cada arquivo custa 8 chamadas reais de LLM (fase 3, uma por smell/pattern), throttled a 20s entre chamadas
+(``app.utils.retry``) — 30 arquivos = ~80+ minutos. Use ``--limit`` para testar com
 poucos arquivos antes de rodar tudo. A execução é resumível: interrompeu? roda de
 novo que ele pula os arquivos já no checkpoint.
 

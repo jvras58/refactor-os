@@ -1,9 +1,9 @@
 """Deterministic tests for the new multi-detector pipeline (no LLM, no DB).
 
 Only phases 1 (validation), 2 (heuristic scan) and 4 (compilation) are testable
-without an LLM/DB connection — they're ``@staticmethod``/plain classes, so we call
+without an LLM connection — they're ``@staticmethod``/plain classes, so we call
 them directly without instantiating ``MultiDetectorService`` (whose ``__init__``
-builds an Agno Agent + DB handle). Phase 3 (paired LLM calls) is exercised via a
+builds an Agno Agent). Phase 3 (the 8 individual LLM calls) is exercised via a
 manual smoke test against real examples, not in this automated suite.
 """
 from __future__ import annotations

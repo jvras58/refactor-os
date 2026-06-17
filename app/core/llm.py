@@ -20,7 +20,7 @@ def build_main_model() -> MistralChat:
     settings = get_settings()
     return MistralChat(
         id=settings.llm_model_id,
-        api_key=settings.mistral_api_key,
+        api_key=settings.llm_api_key,
         temperature=settings.llm_temperature,
     )
 
@@ -30,6 +30,6 @@ def build_parser_model() -> MistralChat:
     settings = get_settings()
     return MistralChat(
         id=settings.llm_model_id,
-        api_key=settings.mistral_api_key,
+        api_key=settings.llm_api_key,
         temperature=0.0,
     )

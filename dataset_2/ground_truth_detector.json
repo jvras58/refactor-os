@@ -1,0 +1,205 @@
+[
+  {
+    "file": "code_smell/complex-switch-statements/example_1.py",
+    "problems": [
+      "Complex/Long Switch Statements",
+      "Strategy Pattern"
+    ]
+  },
+  {
+    "file": "code_smell/complex-switch-statements/example_2.py",
+    "problems": [
+      "Complex/Long Switch Statements",
+      "Strategy Pattern"
+    ]
+  },
+  {
+    "file": "code_smell/complex-switch-statements/example_3.py",
+    "problems": [
+      "Complex/Long Switch Statements",
+      "Strategy Pattern"
+    ]
+  },
+  {
+    "file": "code_smell/long-parameter-list/example_1.py",
+    "problems": [
+      "Long Parameter List"
+    ]
+  },
+  {
+    "file": "code_smell/long-parameter-list/example_2.py",
+    "problems": [
+      "Long Parameter List"
+    ]
+  },
+  {
+    "file": "code_smell/long-parameter-list/example_3.py",
+    "problems": [
+      "Long Parameter List",
+      "Builder"
+    ]
+  },
+  {
+    "file": "code_smell/god-class/example_1.py",
+    "problems": [
+      "God Class"
+    ]
+  },
+  {
+    "file": "code_smell/god-class/example_2.py",
+    "problems": [
+      "God Class",
+      "Facade"
+    ]
+  },
+  {
+    "file": "code_smell/god-class/example_3.py",
+    "problems": [
+      "God Class",
+      "Facade"
+    ]
+  },
+  {
+    "file": "code_smell/duplicated-code/example_1.py",
+    "problems": [
+      "Duplicated Code",
+      "Template Method"
+    ]
+  },
+  {
+    "file": "code_smell/duplicated-code/example_2.py",
+    "problems": [
+      "Duplicated Code",
+      "Template Method"
+    ]
+  },
+  {
+    "file": "code_smell/duplicated-code/example_3.py",
+    "problems": [
+      "Duplicated Code",
+      "Template Method"
+    ]
+  },
+  {
+    "file": "patterns/strategy-pattern/example_1.py",
+    "problems": [
+      "Complex/Long Switch Statements",
+      "Strategy Pattern"
+    ]
+  },
+  {
+    "file": "patterns/strategy-pattern/example_2.py",
+    "problems": [
+      "Complex/Long Switch Statements",
+      "Strategy Pattern"
+    ]
+  },
+  {
+    "file": "patterns/strategy-pattern/example_3.py",
+    "problems": [
+      "Complex/Long Switch Statements",
+      "Strategy Pattern"
+    ]
+  },
+  {
+    "file": "patterns/builder/example_1.py",
+    "problems": [
+      "Builder"
+    ]
+  },
+  {
+    "file": "patterns/builder/example_2.py",
+    "problems": [
+      "Builder"
+    ]
+  },
+  {
+    "file": "patterns/builder/example_3.py",
+    "problems": [
+      "Builder"
+    ]
+  },
+  {
+    "file": "patterns/facade/example_1.py",
+    "problems": [
+      "Facade"
+    ]
+  },
+  {
+    "file": "patterns/facade/example_2.py",
+    "problems": [
+      "God Class",
+      "Facade"
+    ]
+  },
+  {
+    "file": "patterns/facade/example_3.py",
+    "problems": [
+      "Facade"
+    ]
+  },
+  {
+    "file": "patterns/template-method/example_1.py",
+    "problems": [
+      "Duplicated Code",
+      "Template Method"
+    ]
+  },
+  {
+    "file": "patterns/template-method/example_2.py",
+    "problems": [
+      "Duplicated Code",
+      "Template Method"
+    ]
+  },
+  {
+    "file": "patterns/template-method/example_3.py",
+    "problems": [
+      "Duplicated Code",
+      "Template Method"
+    ]
+  },
+  {
+    "file": "mixed/example_1.py",
+    "problems": [
+      "God Class",
+      "Facade",
+      "Long Parameter List",
+      "Complex/Long Switch Statements",
+      "Strategy Pattern"
+    ]
+  },
+  {
+    "file": "mixed/example_2.py",
+    "problems": [
+      "Duplicated Code",
+      "Template Method",
+      "Long Parameter List",
+      "Complex/Long Switch Statements",
+      "Strategy Pattern"
+    ]
+  },
+  {
+    "file": "mixed/example_3.py",
+    "problems": [
+      "God Class",
+      "Facade",
+      "Complex/Long Switch Statements",
+      "Strategy Pattern",
+      "Duplicated Code",
+      "Template Method"
+    ]
+  },
+  {
+    "file": "complex-clean/example_1.py",
+    "problems": []
+  },
+  {
+    "file": "complex-clean/example_2.py",
+    "problems": []
+  },
+  {
+    "file": "complex-clean/example_3.py",
+    "problems": []
+  }
+]

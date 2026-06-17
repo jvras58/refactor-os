@@ -3,18 +3,22 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import Depends
+from fastapi import Depends, HTTPException
 
 from app.api.dependencies import get_refactor_service
-from app.core.schemas import RefactorRequest, RefactorResult, SmellDetection
+from app.core.exceptions import InvalidPythonCodeError
+from app.core.schemas import DetectionScanResult, RefactorRequest, RefactorResult
 from app.services.refactor_service import RefactorService
 
 
 async def detect(
     request: RefactorRequest,
     service: Annotated[RefactorService, Depends(get_refactor_service)],
-) -> SmellDetection:
-    return await service.detect(request.source_code)
+) -> DetectionScanResult:
+    try:
+        return await service.detect(request.source_code)
+    except InvalidPythonCodeError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 async def refactor(

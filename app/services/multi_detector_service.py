@@ -1,4 +1,4 @@
-"""MultiDetectorService — the new, from-scratch multi-smell/multi-pattern detector.
+"""MultiDetectorService — the multi-smell/multi-pattern detector of the pipeline.
 
 Four explicit phases:
 1. Validation — fails fast if ``source_code`` doesn't compile as Python.
@@ -8,9 +8,6 @@ Four explicit phases:
    never gate/skip a check.
 4. Compilation — a swappable strategy (``ResultCompiler``) shapes the raw scan for
    whichever consumer needs it (ground-truth comparison, Recommender input, etc.).
-
-Does not import or modify anything from the existing ``RefactorService``/
-``detector_agent.py``/``DETECTOR_INSTRUCTIONS`` — fully independent pipeline.
 """
 from __future__ import annotations
 
@@ -20,48 +17,26 @@ from typing import Protocol
 
 from agno.agent import Agent
 
-from app.agents.multi_detector_agent import build_type_detector_agent
-from app.core.multi_detector_exceptions import InvalidPythonCodeError
-from app.core.multi_detector_prompts import (
-    PATTERN_DEFINITIONS,
-    SMELL_DEFINITIONS,
-    build_type_prompt,
-)
-from app.core.multi_detector_schemas import (
+from app.agents.detector_agent import build_type_detector_agent
+from app.core.exceptions import InvalidPythonCodeError
+from app.core.prompts import PATTERN_DEFINITIONS, SMELL_DEFINITIONS, build_type_prompt
+from app.core.schemas import (
+    PATTERN_TO_SMELL,
     DetectionScanResult,
     HeuristicScan,
+    PatternType,
     SmellHeuristicSignal,
+    SmellType,
     TypeDetectionResult,
 )
-from app.core.multi_detector_types import PATTERN_TO_SMELL, PatternType, SmellType
-from app.core.schemas import BadSmellType
 from app.tools.heuristic_engine import score_all_smells
 from app.utils.retry import arun_typed
 
 logger = logging.getLogger(__name__)
 
 # Phase 3 — 8 calls total, one per type. Order is just iteration order, not grouping.
-_SMELLS: tuple[SmellType, ...] = (
-    SmellType.COMPLEX_SWITCH,
-    SmellType.LONG_PARAMETER,
-    SmellType.GOD_CLASS,
-    SmellType.DUPLICATED_CODE,
-)
-_PATTERNS: tuple[PatternType, ...] = (
-    PatternType.STRATEGY,
-    PatternType.BUILDER,
-    PatternType.FACADE,
-    PatternType.TEMPLATE_METHOD,
-)
-
-# multi_detector_types.SmellType values match BadSmellType values 1:1 (minus Tight
-# Coupling) — this lets phase 2 reuse heuristic_engine's scorers without duplicating them.
-_SMELL_TYPE_TO_BAD_SMELL: dict[SmellType, BadSmellType] = {
-    SmellType.COMPLEX_SWITCH: BadSmellType.COMPLEX_SWITCH,
-    SmellType.LONG_PARAMETER: BadSmellType.LONG_PARAMETER,
-    SmellType.GOD_CLASS: BadSmellType.GOD_CLASS,
-    SmellType.DUPLICATED_CODE: BadSmellType.DUPLICATED_CODE,
-}
+_SMELLS: tuple[SmellType, ...] = tuple(SmellType)
+_PATTERNS: tuple[PatternType, ...] = tuple(PatternType)
 
 
 class ResultCompiler(Protocol):
@@ -72,10 +47,10 @@ class ResultCompiler(Protocol):
 
 class GroundTruthArrayCompiler:
     """Compiles to ``list[str]`` of detected type names — matches the ``problems``
-    field of ``dataset_2/ground_truth_detector.json``."""
+    field of ``dataset/ground_truth_detector.json``."""
 
     def compile(self, scan: DetectionScanResult) -> list[str]:
-        return [result.type_name for result in scan.type_results if result.detected]
+        return scan.detected_names()
 
 
 class MultiDetectorService:
@@ -105,8 +80,7 @@ class MultiDetectorService:
         logger.info("[fase 2] entrada: %d chars de código-fonte", len(source_code))
         raw = score_all_smells(source_code)
         signals: dict[SmellType, SmellHeuristicSignal] = {}
-        for smell_type, bad_smell in _SMELL_TYPE_TO_BAD_SMELL.items():
-            signal = raw.get(bad_smell)
+        for smell_type, signal in raw.items():
             if signal is None:
                 signals[smell_type] = SmellHeuristicSignal(
                     smell_type=smell_type, possible=False, score=0.0

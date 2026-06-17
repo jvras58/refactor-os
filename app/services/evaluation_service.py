@@ -2,12 +2,16 @@
 
 Three focused evaluations, one per agent, exactly as required by the course rubric:
 
-* ``evaluate_detector``  — Agente Rastreador: confusion matrix over smelly + clean code,
-  surfacing **Falsos Negativos** (deixou passar) e **Falsos Positivos** (viu onde não há).
-* ``evaluate_refactor``  — Agente Refatorador: precisão/qualidade da solução proposta para
-  cada problema, via checagens objetivas (pattern correto, sintaxe válida, API preservada).
-* ``evaluate_critic``    — Agente Revisor: confiabilidade do julgamento, alimentando o Critic
-  com soluções sabidamente corretas e incorretas (**false accept** e **false reject**).
+* ``evaluate_detector``  — Agente Rastreador: avaliação multi-label sobre pares
+  (arquivo, tipo) — cada arquivo gera 8 decisões binárias (4 smells + 4 patterns),
+  comparadas contra ``ground_truth_detector.json``. Surface **Falsos Negativos**
+  (deixou passar) e **Falsos Positivos** (viu onde não há).
+* ``evaluate_refactor``  — Agente Refatorador: precisão/qualidade da solução proposta
+  para cada problema, via checagens objetivas (pattern correto, sintaxe válida, API
+  preservada). O pattern esperado é derivado dos ``problems`` do ground truth.
+* ``evaluate_critic``    — Agente Revisor: confiabilidade do julgamento, alimentando o
+  Critic com soluções sabidamente corretas e incorretas (**false accept** e **false
+  reject**). O dataset atual não traz soluções rotuladas, então exige ``samples``.
 """
 from __future__ import annotations
 
@@ -16,26 +20,31 @@ import logging
 from pathlib import Path
 
 from app.core.config import get_settings
+from app.core.exceptions import InvalidPythonCodeError
 from app.core.schemas import (
-    BadSmellType,
+    ALL_TYPE_NAMES,
+    SMELL_TO_PATTERN,
     ConfusionMatrix,
     CriticEvalSample,
     CriticMetrics,
-    CriticTruthEntry,
-    DesignPatternType,
     DetectorEvalSample,
     DetectorMetrics,
     FullEvaluationReport,
     GroundTruthEntry,
+    PatternType,
     RefactorEvalSample,
     RefactoringProposal,
     RefactorQualityMetrics,
     RefactorRequest,
+    SmellType,
 )
 from app.services.quality_checks import assess_refactoring
 from app.services.refactor_service import RefactorService
 
 logger = logging.getLogger(__name__)
+
+_SMELL_VALUES = {smell.value for smell in SmellType}
+_PATTERN_VALUES = {pattern.value for pattern in PatternType}
 
 
 def _safe_div(numerator: float, denominator: float) -> float:
@@ -58,37 +67,36 @@ class EvaluationService:
     def _dataset_dir(self) -> Path:
         return self._settings.dataset_dir
 
+    @property
+    def _examples_dir(self) -> Path:
+        return self._dataset_dir / "examples"
+
     def _load_ground_truth(self) -> list[GroundTruthEntry]:
-        path = self._dataset_dir / "ground_truth.json"
+        path = self._dataset_dir / "ground_truth_detector.json"
         raw = json.loads(path.read_text(encoding="utf-8"))
         return [GroundTruthEntry(**entry) for entry in raw]
 
-    def _load_critic_truth(self) -> list[CriticTruthEntry]:
-        path = self._dataset_dir / "critic_truth.json"
-        raw = json.loads(path.read_text(encoding="utf-8"))
-        return [CriticTruthEntry(**entry) for entry in raw]
-
-    def _read(self, relative: str) -> str:
-        return (self._dataset_dir / relative).read_text(encoding="utf-8")
+    def _read_example(self, relative: str) -> str:
+        return (self._examples_dir / relative).read_text(encoding="utf-8")
 
     # ------------------------------------------------------------------ inputs
-    def _detector_inputs_from_dataset(self) -> list[tuple[str, str, BadSmellType]]:
-        """Yield ``(label, source_code, expected_smell)`` tuples from ground_truth.json."""
-        out: list[tuple[str, str, BadSmellType]] = []
+    def _detector_inputs_from_dataset(self) -> list[tuple[str, str, set[str]]]:
+        """Yield ``(label, source_code, expected_problems)`` from the ground truth."""
+        out: list[tuple[str, str, set[str]]] = []
         for entry in self._load_ground_truth():
-            source_path = self._dataset_dir / entry.file
+            source_path = self._examples_dir / entry.file
             if not source_path.is_file():
                 logger.warning("dataset file missing: %s", source_path)
                 continue
-            out.append((entry.file, self._read(entry.file), entry.smell_type))
+            out.append((entry.file, self._read_example(entry.file), set(entry.problems)))
         return out
 
     @staticmethod
     def _detector_inputs_from_samples(
         samples: list[DetectorEvalSample],
-    ) -> list[tuple[str, str, BadSmellType]]:
+    ) -> list[tuple[str, str, set[str]]]:
         return [
-            (s.name or f"sample_{i + 1}", s.source_code, s.expected_smell)
+            (s.name or f"sample_{i + 1}", s.source_code, set(s.expected_problems))
             for i, s in enumerate(samples)
         ]
 
@@ -96,10 +104,11 @@ class EvaluationService:
     async def evaluate_detector(
         self, samples: list[DetectorEvalSample] | None = None
     ) -> DetectorMetrics:
-        """Confusion matrix of the Detector over smelly and clean programs.
+        """Multi-label confusion matrix of the Detector over (file, type) pairs.
 
-        Positive class = "the file contains an in-scope bad smell". When ``samples``
-        is provided, evaluates over user-submitted code instead of the dataset.
+        Every file yields one binary decision per in-scope smell/pattern type.
+        When ``samples`` is provided, evaluates over user-submitted code instead
+        of the dataset.
         """
         inputs = (
             self._detector_inputs_from_samples(samples)
@@ -107,48 +116,49 @@ class EvaluationService:
             else self._detector_inputs_from_dataset()
         )
         cm = ConfusionMatrix()
-        type_hits = type_total = 0
+        exact_matches = evaluated_files = 0
         per_file: list[dict] = []
 
-        for label, source_code, expected_smell in inputs:
-            expected_has_smell = expected_smell != BadSmellType.NO_SMELL
-
+        for label, source_code, expected in inputs:
             try:
-                detection = await self._service.detect(source_code)
-                predicted_has_smell = bool(detection.has_smell)
-                detected_smell = detection.smell_type.value
+                scan = await self._service.detect(source_code)
+                detected = set(scan.detected_names())
+            except InvalidPythonCodeError as exc:
+                logger.warning("Detector rejected %s: %s", label, exc)
+                per_file.append(
+                    {"file": label, "expected_problems": sorted(expected), "error": str(exc)}
+                )
+                continue
             except Exception:
                 logger.exception("Detector failed on %s", label)
                 per_file.append(
-                    {"file": label, "expected_smell": expected_smell.value, "error": True}
+                    {"file": label, "expected_problems": sorted(expected), "error": True}
                 )
                 continue
 
-            if expected_has_smell and predicted_has_smell:
-                classification = "TP"
-                cm.true_positive += 1
-                type_total += 1
-                if detection.smell_type == expected_smell:
-                    type_hits += 1
-            elif expected_has_smell and not predicted_has_smell:
-                classification = "FN"  # deixou passar um smell real
-                cm.false_negative += 1
-            elif not expected_has_smell and predicted_has_smell:
-                classification = "FP"  # apontou smell em código limpo
-                cm.false_positive += 1
-            else:
-                classification = "TN"
-                cm.true_negative += 1
+            evaluated_files += 1
+            for type_name in ALL_TYPE_NAMES:
+                expected_here = type_name in expected
+                detected_here = type_name in detected
+                if expected_here and detected_here:
+                    cm.true_positive += 1
+                elif expected_here and not detected_here:
+                    cm.false_negative += 1  # deixou passar um problema real
+                elif not expected_here and detected_here:
+                    cm.false_positive += 1  # apontou problema onde não existe
+                else:
+                    cm.true_negative += 1
 
+            exact = detected == expected
+            exact_matches += exact
             per_file.append(
                 {
                     "file": label,
-                    "expected_smell": expected_smell.value,
-                    "detected_smell": detected_smell,
-                    "expected_has_smell": expected_has_smell,
-                    "predicted_has_smell": predicted_has_smell,
-                    "type_correct": detection.smell_type == expected_smell if expected_has_smell else None,
-                    "classification": classification,
+                    "expected_problems": sorted(expected),
+                    "detected_problems": sorted(detected),
+                    "missing": sorted(expected - detected),
+                    "extra": sorted(detected - expected),
+                    "exact_match": exact,
                 }
             )
 
@@ -157,7 +167,7 @@ class EvaluationService:
         accuracy = _safe_div(cm.true_positive + cm.true_negative, cm.total)
         specificity = _safe_div(cm.true_negative, cm.true_negative + cm.false_positive)
         return DetectorMetrics(
-            total=cm.total,
+            total_files=len(inputs),
             confusion=cm,
             precision=precision,
             recall=recall,
@@ -166,26 +176,42 @@ class EvaluationService:
             specificity=specificity,
             false_positive_rate=_safe_div(cm.false_positive, cm.false_positive + cm.true_negative),
             false_negative_rate=_safe_div(cm.false_negative, cm.false_negative + cm.true_positive),
-            type_accuracy=_safe_div(type_hits, type_total),
+            exact_match_rate=_safe_div(exact_matches, evaluated_files),
             per_file=per_file,
         )
 
-    def _refactor_inputs_from_dataset(self) -> list[tuple[str, str, DesignPatternType]]:
-        out: list[tuple[str, str, DesignPatternType]] = []
+    @staticmethod
+    def _expected_pattern_from_problems(problems: list[str]) -> PatternType | None:
+        """Derives the pattern the Recommender ought to apply for an example.
+
+        The ground truth lists patterns explicitly when applicable; otherwise the
+        pattern comes from the canonical smell → pattern mapping.
+        """
+        patterns = [PatternType(p) for p in problems if p in _PATTERN_VALUES]
+        if patterns:
+            return patterns[0]
+        smells = [SmellType(p) for p in problems if p in _SMELL_VALUES]
+        if smells:
+            return SMELL_TO_PATTERN[smells[0]]
+        return None
+
+    def _refactor_inputs_from_dataset(self) -> list[tuple[str, str, PatternType]]:
+        out: list[tuple[str, str, PatternType]] = []
         for entry in self._load_ground_truth():
-            if entry.smell_type == BadSmellType.NO_SMELL:
+            expected_pattern = self._expected_pattern_from_problems(entry.problems)
+            if expected_pattern is None:  # arquivo limpo — não é alvo do Refatorador
                 continue
-            source_path = self._dataset_dir / entry.file
+            source_path = self._examples_dir / entry.file
             if not source_path.is_file():
                 logger.warning("dataset file missing: %s", source_path)
                 continue
-            out.append((entry.file, self._read(entry.file), entry.expected_pattern))
+            out.append((entry.file, self._read_example(entry.file), expected_pattern))
         return out
 
     @staticmethod
     def _refactor_inputs_from_samples(
         samples: list[RefactorEvalSample],
-    ) -> list[tuple[str, str, DesignPatternType]]:
+    ) -> list[tuple[str, str, PatternType]]:
         return [
             (s.name or f"sample_{i + 1}", s.source_code, s.expected_pattern)
             for i, s in enumerate(samples)
@@ -198,7 +224,7 @@ class EvaluationService:
         """Precision/quality of the Recommender's solution for each detected problem.
 
         When ``samples`` is provided, evaluates over user-submitted code instead of the
-        dataset. Each submitted sample is assumed to be a problem (no NO_SMELL filter).
+        dataset. Each submitted sample is assumed to be a problem (no clean-file filter).
         """
         inputs = (
             self._refactor_inputs_from_samples(samples)
@@ -229,6 +255,7 @@ class EvaluationService:
                         "file": label,
                         "expected_pattern": expected_pattern.value,
                         "applied_pattern": None,
+                        "detected_problems": result.detected_problems,
                         "pattern_correct": False,
                         "syntax_valid": False,
                         "logic_preserved": False,
@@ -255,6 +282,7 @@ class EvaluationService:
                     "file": label,
                     "expected_pattern": expected_pattern.value,
                     "applied_pattern": result.proposal.applied_pattern.value,
+                    "detected_problems": result.detected_problems,
                     "pattern_correct": assessment["pattern_correct"],
                     "syntax_valid": assessment["syntax_valid"],
                     "logic_preserved": assessment["logic_preserved"],
@@ -277,36 +305,10 @@ class EvaluationService:
             per_file=per_file,
         )
 
-    def _critic_inputs_from_dataset(
-        self,
-    ) -> list[tuple[str, str, str, DesignPatternType, bool, str | None]]:
-        """Yield ``(label, problem_code, solution_code, applied_pattern, expected, defect)``."""
-        out: list[tuple[str, str, str, DesignPatternType, bool, str | None]] = []
-        for entry in self._load_critic_truth():
-            try:
-                original = self._read(entry.problem_file)
-                refactored = self._read(entry.solution_file)
-            except FileNotFoundError:
-                logger.warning(
-                    "critic fixture missing: %s / %s", entry.problem_file, entry.solution_file
-                )
-                continue
-            out.append(
-                (
-                    entry.solution_file,
-                    original,
-                    refactored,
-                    entry.applied_pattern,
-                    entry.expected_approved,
-                    entry.defect_kind,
-                )
-            )
-        return out
-
     @staticmethod
     def _critic_inputs_from_samples(
         samples: list[CriticEvalSample],
-    ) -> list[tuple[str, str, str, DesignPatternType, bool, str | None]]:
+    ) -> list[tuple[str, str, str, PatternType, bool, str | None]]:
         return [
             (
                 s.name or f"sample_{i + 1}",
@@ -325,14 +327,15 @@ class EvaluationService:
     ) -> CriticMetrics:
         """Reliability of the Critic, fed with known-correct and known-incorrect solutions.
 
-        Positive class = "the solution is correct" (the Critic ought to approve). When
-        ``samples`` is provided, evaluates over user-submitted code instead of the dataset.
+        Positive class = "the solution is correct" (the Critic ought to approve).
+        The current dataset carries no labeled solutions, so ``samples`` is required.
         """
-        inputs = (
-            self._critic_inputs_from_samples(samples)
-            if samples
-            else self._critic_inputs_from_dataset()
-        )
+        if not samples:
+            raise FileNotFoundError(
+                "O dataset atual não possui soluções rotuladas para o Critic "
+                "(critic_truth.json foi removido) — envie `samples` no body."
+            )
+        inputs = self._critic_inputs_from_samples(samples)
         cm = ConfusionMatrix()
         per_file: list[dict] = []
 
@@ -404,9 +407,9 @@ class EvaluationService:
         refactor_samples: list[RefactorEvalSample] | None = None,
         critic_samples: list[CriticEvalSample] | None = None,
     ) -> FullEvaluationReport:
-        """Roda as três avaliações. Cada lista de samples é independente: ``None``
-        deixa o respectivo agente cair no dataset; lista preenchida ativa o modo
-        ad-hoc só para aquele agente."""
+        """Roda as três avaliações. Detector e Refatorador caem no dataset quando a
+        respectiva lista de samples é ``None``; o Critic exige ``critic_samples``
+        (o dataset atual não traz soluções rotuladas)."""
         return FullEvaluationReport(
             detector=await self.evaluate_detector(samples=detector_samples),
             refactor=await self.evaluate_refactor(samples=refactor_samples),

@@ -5,9 +5,9 @@ Phase-by-phase input/output is captured via ``logging`` inside
 content) — configure the root/``app.services.multi_detector_service`` logger to
 see it. This runner adds:
 
-- Discovery of every ``.py`` file under a directory (e.g. ``dataset_2/examples/``).
+- Discovery of every ``.py`` file under a directory (e.g. ``dataset/examples/``).
 - A JSONL checkpoint, one record per finished file, so an interrupted run (each
-  file costs 4 real LLM calls, throttled 20s apart by ``app.utils.retry``) can be
+  file costs 8 real LLM calls, throttled 20s apart by ``app.utils.retry``) can be
   resumed without repeating already-done files — mirrors
   ``scripts/run_refactor_resumable.py``.
 - The final compiled (phase 4) result per file, plus the raw scan for inspection.
@@ -18,7 +18,7 @@ import json
 import logging
 from pathlib import Path
 
-from app.core.multi_detector_exceptions import InvalidPythonCodeError
+from app.core.exceptions import InvalidPythonCodeError
 from app.services.multi_detector_service import MultiDetectorService
 
 logger = logging.getLogger(__name__)

@@ -1,7 +1,11 @@
 """Orchestrates the deterministic Detector → Recommender → Critic pipeline.
 
-Drives the explicit reflection loop (up to N iterations) outside the Team
-abstraction so the academic evaluation can measure each stage independently.
+Detection is the multi-detector (``MultiDetectorService``): a multi-label scan
+that decides all 4 smells + 4 patterns independently. ``run`` then picks ONE
+target from the scan (the detected smell with the strongest heuristic score,
+falling back to a detected pattern) and drives the explicit reflection loop
+(up to N iterations) outside the Team abstraction so the academic evaluation
+can measure each stage independently.
 
 Each agent is built with a ``parser_model`` (see ``app/core/llm.py``) so the
 main Mistral call handles tool/skill calling without forced json_mode, while a
@@ -14,38 +18,33 @@ from __future__ import annotations
 import logging
 
 from app.agents.critic_agent import build_critic_agent
-from app.agents.detector_agent import build_detector_agent
 from app.agents.recommender_agent import build_recommender_agent
 from app.core.config import get_settings
+from app.core.exceptions import InvalidPythonCodeError
 from app.core.schemas import (
+    PATTERN_TO_SMELL,
     SMELL_TO_PATTERN,
-    BadSmellType,
-    DesignPatternType,
+    DetectionScanResult,
+    PatternType,
     RefactoringProposal,
     RefactorRequest,
     RefactorResult,
     ReflectionReview,
-    SmellDetection,
+    SmellType,
+    TypeDetectionResult,
 )
 from app.services.code_repair import repair_refactored_code
-from app.tools.heuristic_engine import format_prior, score_smells
+from app.services.multi_detector_service import MultiDetectorService
 from app.tools.logic_signals import analyze_logic_preservation, format_logic_prior
 from app.utils.retry import arun_typed
 
 logger = logging.getLogger(__name__)
 
-_DETECT_FALLBACK = SmellDetection(
-    has_smell=False,
-    smell_type=BadSmellType.NO_SMELL,
-    reasoning="Detector falhou — erro interno ao chamar o agente.",
-)
-
-_PATTERN_TO_SKILL: dict[DesignPatternType, str] = {
-    DesignPatternType.STRATEGY: "strategy-pattern",
-    DesignPatternType.BUILDER: "builder-parameter-object",
-    DesignPatternType.FACADE_SRP: "facade-srp",
-    DesignPatternType.DEPENDENCY_INJECTION: "dependency-injection",
-    DesignPatternType.TEMPLATE_METHOD: "template-method",
+_PATTERN_TO_SKILL: dict[PatternType, str] = {
+    PatternType.STRATEGY: "strategy-pattern",
+    PatternType.BUILDER: "builder-parameter-object",
+    PatternType.FACADE: "facade-srp",
+    PatternType.TEMPLATE_METHOD: "template-method",
 }
 
 
@@ -54,41 +53,70 @@ class RefactorService:
 
     def __init__(self) -> None:
         self._settings = get_settings()
-        self._detector = build_detector_agent()
+        self._detector = MultiDetectorService()
         self._recommender = build_recommender_agent()
         self._critic = build_critic_agent()
 
-    async def detect(self, source_code: str) -> SmellDetection:
-        prior = format_prior(score_smells(source_code))
-        prompt = (
-            "Analise o seguinte código-fonte e retorne um SmellDetection.\n"
-            "Use obrigatoriamente `ast_analyzer_tool` antes de concluir.\n\n"
-            f"--- Prior da matriz heurística ---\n{prior}\n--- fim do prior ---\n\n"
-            f"```python\n{source_code}\n```"
-        )
-        return await arun_typed(
-            self._detector.arun, prompt, schema=SmellDetection, label="Detector"
+    async def detect(self, source_code: str) -> DetectionScanResult:
+        """Multi-label scan: 4 smells + 4 patterns decided independently.
+
+        Raises ``InvalidPythonCodeError`` when the input does not parse.
+        """
+        return await self._detector.detect(source_code)
+
+    @staticmethod
+    def _select_target(
+        scan: DetectionScanResult,
+    ) -> tuple[SmellType | None, PatternType | None, TypeDetectionResult | None]:
+        """Picks ONE (smell, pattern) target for the Recommender from the scan.
+
+        Preference: the detected smell with the strongest heuristic score (its
+        pattern comes from the canonical mapping). If no smell was detected but
+        a pattern is applicable, targets that pattern directly.
+        """
+        detected = {result.type_name: result for result in scan.type_results if result.detected}
+
+        smells = [smell for smell in SmellType if smell.value in detected]
+        if smells:
+            smell = max(smells, key=lambda s: scan.heuristic_scan.signals[s].score)
+            return smell, SMELL_TO_PATTERN[smell], detected[smell.value]
+
+        patterns = [pattern for pattern in PatternType if pattern.value in detected]
+        if patterns:
+            pattern = patterns[0]
+            return PATTERN_TO_SMELL[pattern], pattern, detected[pattern.value]
+
+        return None, None, None
+
+    @staticmethod
+    def _format_evidence(detection: TypeDetectionResult) -> str:
+        if not detection.evidencias:
+            return "n/d"
+        return "; ".join(
+            f"{ev.local} (linhas {'-'.join(str(line_num) for line_num in ev.linhas)})"
+            for ev in detection.evidencias
         )
 
     async def propose(
         self,
         source_code: str,
-        detection: SmellDetection,
+        target_smell: SmellType,
+        target_pattern: PatternType,
+        detection: TypeDetectionResult,
         prior_critique: str | None = None,
     ) -> RefactoringProposal:
-        expected = SMELL_TO_PATTERN.get(detection.smell_type, DesignPatternType.NONE)
-        skill_name = _PATTERN_TO_SKILL.get(expected, "")
+        skill_name = _PATTERN_TO_SKILL[target_pattern]
         critique_block = (
             f"\n\nFeedback do Critic na rodada anterior (corrija obrigatoriamente):\n{prior_critique}"
             if prior_critique
             else ""
         )
         prompt = (
-            f"Smell detectado: {detection.smell_type.value}\n"
-            f"Pattern obrigatório: {expected.value}\n"
+            f"Smell detectado: {target_smell.value}\n"
+            f"Pattern obrigatório: {target_pattern.value}\n"
             f"Skill obrigatório: {skill_name}\n"
             f"Justificativa do Detector: {detection.reasoning}\n"
-            f"Linhas afetadas: {detection.line_start}-{detection.line_end}\n\n"
+            f"Evidências: {self._format_evidence(detection)}\n\n"
             f"Use obrigatoriamente `get_skill_instructions(name='{skill_name}')` para consultar "
             "a estrutura canônica, regras estritas e o exemplo canônico do pattern antes de "
             "propor o código.\n\n"
@@ -129,18 +157,32 @@ class RefactorService:
 
     async def run(self, request: RefactorRequest) -> RefactorResult:
         try:
-            detection = await self.detect(request.source_code)
+            scan = await self.detect(request.source_code)
+        except InvalidPythonCodeError as exc:
+            logger.warning("Detector rejected invalid Python input: %s", exc)
+            return RefactorResult(
+                approved=False,
+                iterations=0,
+                error=f"Código de entrada não compila como Python: {exc}",
+            )
         except Exception:
             logger.exception("Detector stage failed")
             return RefactorResult(
-                detection=_DETECT_FALLBACK,
                 approved=False,
                 iterations=0,
                 error="Detector falhou — verifique logs para detalhes.",
             )
 
-        if not detection.has_smell or detection.smell_type == BadSmellType.NO_SMELL:
-            return RefactorResult(detection=detection, approved=False, iterations=0)
+        detected_problems = scan.detected_names()
+        target_smell, target_pattern, target_detection = self._select_target(scan)
+
+        if target_smell is None or target_pattern is None or target_detection is None:
+            return RefactorResult(
+                detection=scan,
+                detected_problems=detected_problems,
+                approved=False,
+                iterations=0,
+            )
 
         proposal: RefactoringProposal | None = None
         review: ReflectionReview | None = None
@@ -149,11 +191,20 @@ class RefactorService:
         for iteration in range(1, self._settings.max_reflection_iterations + 1):
             logger.info("Reflection iteration %s", iteration)
             try:
-                proposal = await self.propose(request.source_code, detection, prior_critique=critique)
+                proposal = await self.propose(
+                    request.source_code,
+                    target_smell,
+                    target_pattern,
+                    target_detection,
+                    prior_critique=critique,
+                )
             except Exception:
                 logger.exception("Recommender stage failed at iteration %s", iteration)
                 return RefactorResult(
-                    detection=detection,
+                    detection=scan,
+                    detected_problems=detected_problems,
+                    target_smell=target_smell,
+                    target_pattern=target_pattern,
                     proposal=proposal,
                     review=review,
                     iterations=iteration,
@@ -166,7 +217,10 @@ class RefactorService:
             except Exception:
                 logger.exception("Critic stage failed at iteration %s", iteration)
                 return RefactorResult(
-                    detection=detection,
+                    detection=scan,
+                    detected_problems=detected_problems,
+                    target_smell=target_smell,
+                    target_pattern=target_pattern,
                     proposal=proposal,
                     review=review,
                     iterations=iteration,
@@ -176,7 +230,10 @@ class RefactorService:
 
             if review.is_approved:
                 return RefactorResult(
-                    detection=detection,
+                    detection=scan,
+                    detected_problems=detected_problems,
+                    target_smell=target_smell,
+                    target_pattern=target_pattern,
                     proposal=proposal,
                     review=review,
                     iterations=iteration,
@@ -185,7 +242,10 @@ class RefactorService:
             critique = review.critique
 
         return RefactorResult(
-            detection=detection,
+            detection=scan,
+            detected_problems=detected_problems,
+            target_smell=target_smell,
+            target_pattern=target_pattern,
             proposal=proposal,
             review=review,
             iterations=self._settings.max_reflection_iterations,

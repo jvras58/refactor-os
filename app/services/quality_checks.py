@@ -9,12 +9,12 @@ from __future__ import annotations
 import ast
 from typing import Any
 
-from app.core.schemas import DesignPatternType
+from app.core.schemas import PatternType
 from app.tools.logic_signals import analyze_logic_preservation
 from app.tools.syntax_tools import check_syntax
 
 
-def pattern_matches(applied: DesignPatternType, expected: DesignPatternType) -> bool:
+def pattern_matches(applied: PatternType, expected: PatternType) -> bool:
     """True when the applied pattern equals the expected pattern for the smell."""
     return applied == expected
 
@@ -87,8 +87,8 @@ def behavior_preservation(original: str, refactored: str) -> dict[str, Any]:
 def assess_refactoring(
     original: str,
     refactored: str,
-    applied_pattern: DesignPatternType,
-    expected_pattern: DesignPatternType,
+    applied_pattern: PatternType,
+    expected_pattern: PatternType,
 ) -> dict[str, Any]:
     """Aggregate the objective checks into a single verdict.
 

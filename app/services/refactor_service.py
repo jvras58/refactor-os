@@ -34,7 +34,7 @@ from app.core.schemas import (
     TypeDetectionResult,
 )
 from app.services.code_repair import repair_refactored_code
-from app.services.multi_detector_service import MultiDetectorService
+from app.services.detector_service import MultiDetectorService
 from app.tools.logic_signals import analyze_logic_preservation, format_logic_prior
 from app.utils.retry import arun_typed
 

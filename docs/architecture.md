@@ -32,7 +32,7 @@ do `refactor-os`.
 |-------------------|------------------------------------|--------------------------------------------------------------------|
 | API               | `app/api/routes.py`                | Endpoints FastAPI (`/detect`, `/refactor`, `/evaluate/{detector,refactor,critic,all}`). |
 | Service           | `app/services/refactor_service.py` | Orquestra a pipeline determinística com reflection loop.           |
-| Detecção          | `app/services/multi_detector_service.py` | Pipeline multi-label de 4 fases (validação → heurística → 8 checagens LLM → compilação). |
+| Detecção          | `app/services/detector_service.py` | Pipeline multi-label de 4 fases (validação → heurística → 8 checagens LLM → compilação). |
 | Agente            | `app/agents/*_agent.py`            | Factories que constroem cada `Agent` da Agno.                      |
 | LLM               | `app/core/llm.py`                  | `build_main_model()` (tool/skill calling) + `build_parser_model()` (extração de JSON). |
 | Tools             | `app/tools/*.py`                   | Funções determinísticas (matriz heurística, diff, syntax, logic signals). |

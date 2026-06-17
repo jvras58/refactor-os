@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 
 from app.core.exceptions import InvalidPythonCodeError
-from app.services.multi_detector_dataset_runner import MultiDetectorDatasetRunner
+from app.services.detector_dataset_runner import MultiDetectorDatasetRunner
 
 
 class _FakeScan:

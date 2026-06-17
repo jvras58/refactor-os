@@ -240,7 +240,7 @@ refuta** com justificativa — o prior informa, mas nunca pula uma checagem (dec
 O antigo `ast_analyzer_tool` foi removido junto com o detector single-label: ele
 reparseava o mesmo AST que a matriz já analisa, e o multi-detector não usa tools.
 
-**Arquivos:** `app/tools/heuristic_engine.py`, `app/services/multi_detector_service.py`,
+**Arquivos:** `app/tools/heuristic_engine.py`, `app/services/detector_service.py`,
 `app/core/prompts.py`, `tests/test_heuristic_engine.py`.
 
 ---

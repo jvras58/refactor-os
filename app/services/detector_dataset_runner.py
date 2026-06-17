@@ -2,7 +2,7 @@
 
 Phase-by-phase input/output is captured via ``logging`` inside
 ``MultiDetectorService`` itself (INFO = summary, DEBUG = full prompt/response
-content) — configure the root/``app.services.multi_detector_service`` logger to
+content) — configure the root/``app.services.detector_service`` logger to
 see it. This runner adds:
 
 - Discovery of every ``.py`` file under a directory (e.g. ``dataset/examples/``).
@@ -19,7 +19,7 @@ import logging
 from pathlib import Path
 
 from app.core.exceptions import InvalidPythonCodeError
-from app.services.multi_detector_service import MultiDetectorService
+from app.services.detector_service import MultiDetectorService
 
 logger = logging.getLogger(__name__)
 

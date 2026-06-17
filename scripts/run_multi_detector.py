@@ -29,7 +29,7 @@ import asyncio
 import logging
 from pathlib import Path
 
-from app.services.multi_detector_dataset_runner import MultiDetectorDatasetRunner
+from app.services.detector_dataset_runner import MultiDetectorDatasetRunner
 
 DEFAULT_EXAMPLES_DIR = Path("dataset/examples")
 DEFAULT_CHECKPOINT = Path("dataset/reports/multi_detector_checkpoint.jsonl")

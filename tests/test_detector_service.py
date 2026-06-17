@@ -18,7 +18,7 @@ from app.core.schemas import (
     SmellType,
     TypeDetectionResult,
 )
-from app.services.multi_detector_service import GroundTruthArrayCompiler, MultiDetectorService
+from app.services.detector_service import GroundTruthArrayCompiler, MultiDetectorService
 
 # --------------------------------------------------------------- phase 1
 

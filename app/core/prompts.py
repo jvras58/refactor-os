@@ -2,7 +2,7 @@
 
 The Detector runs one LLM call per smell/pattern type (multi-detector): the type
 name/definition is injected into the per-call prompt via ``build_type_prompt``,
-not into static instructions — see ``app/services/multi_detector_service.py``
+not into static instructions — see ``app/services/detector_service.py``
 for the loop over all 8 types.
 """
 from __future__ import annotations

@@ -177,7 +177,7 @@ Só a detecção multi-label (sem Recommender/Critic — não precisa de Postgre
 ```python
 import asyncio
 
-from app.services.multi_detector_service import MultiDetectorService
+from app.services.detector_service import MultiDetectorService
 
 service = MultiDetectorService()
 scan = asyncio.run(service.detect(open("script.py").read()))

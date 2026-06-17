@@ -37,7 +37,7 @@ forçado. O que muda entre eles é o **prompt**
 ### 1.1 Detector — multi-detector em 4 fases
 
 O Detector não é mais uma única chamada de LLM: é o
-[`MultiDetectorService`](../app/services/multi_detector_service.py), um
+[`MultiDetectorService`](../app/services/detector_service.py), um
 pipeline **multi-label** de 4 fases explícitas:
 
 1. **Validação** — `ast.parse` no código de entrada; falha levanta
@@ -272,7 +272,7 @@ O `RefactorService` é chamado por:
   documentado em [usage.md](usage.md).
 
 O detector também pode rodar em lote, com checkpoint resumível, via
-[`MultiDetectorDatasetRunner`](../app/services/multi_detector_dataset_runner.py)
+[`MultiDetectorDatasetRunner`](../app/services/detector_dataset_runner.py)
 (CLI: `scripts/run_multi_detector.py`).
 
 ---
@@ -447,8 +447,8 @@ a etapa avisando). Para cada amostra:
 ## Mapa rápido para navegação
 
 - Pipeline e reflection loop → [app/services/refactor_service.py](../app/services/refactor_service.py)
-- Detector multi-label (4 fases) → [app/services/multi_detector_service.py](../app/services/multi_detector_service.py)
-- Runner com checkpoint → [app/services/multi_detector_dataset_runner.py](../app/services/multi_detector_dataset_runner.py)
+- Detector multi-label (4 fases) → [app/services/detector_service.py](../app/services/detector_service.py)
+- Runner com checkpoint → [app/services/detector_dataset_runner.py](../app/services/detector_dataset_runner.py)
 - Avaliação → [app/services/evaluation_service.py](../app/services/evaluation_service.py)
 - Schemas trocados entre agentes → [app/core/schemas.py](../app/core/schemas.py)
 - Prompts (contrato de comportamento + definições dos tipos) → [app/core/prompts.py](../app/core/prompts.py)

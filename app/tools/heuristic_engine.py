@@ -1,18 +1,17 @@
-"""Heuristic matrix that ranks the 5 in-scope bad smells from AST signals.
+"""Heuristic matrix that scores the 4 in-scope bad smells from AST signals.
 
-The deterministic *prior* of the Detector: ``score_smells`` scores each smell
-from explicit structural signals and the Detector LLM confirms/overrides it (see
-``RefactorService.detect``). Scores in [0, 1] only rank candidates — they are not
-calibrated probabilities.
+The deterministic *prior* of the Detector: ``score_all_smells`` scores each smell
+from explicit structural signals and the multi-detector's phase-3 LLM calls
+confirm/override it (see ``MultiDetectorService``). Scores in [0, 1] only rank
+candidates — they are not calibrated probabilities.
 """
 from __future__ import annotations
 
 import ast
 from dataclasses import dataclass, field
 
-from app.core.schemas import BadSmellType
+from app.core.schemas import SmellType
 
-# Thresholds shared with app/tools/ast_tools.py — kept in sync intentionally.
 GOD_CLASS_MEMBER_THRESHOLD = 20
 LONG_PARAMETER_THRESHOLD = 5
 HIGH_COMPLEXITY_THRESHOLD = 10
@@ -24,7 +23,7 @@ DUPLICATE_MIN_STATEMENTS = 3
 class SmellSignal:
     """A single ranked smell candidate produced by the heuristic matrix."""
 
-    smell: BadSmellType
+    smell: SmellType
     score: float
     evidence: list[str] = field(default_factory=list)
     line_start: int | None = None
@@ -72,7 +71,7 @@ def _score_complex_switch(tree: ast.AST) -> SmellSignal | None:
     score = min(1.0, 0.4 + 0.1 * branches)
     kind = "match/case" if isinstance(node, ast.Match) else "if/elif"
     return SmellSignal(
-        smell=BadSmellType.COMPLEX_SWITCH,
+        smell=SmellType.COMPLEX_SWITCH,
         score=score,
         evidence=[f"Cadeia {kind} com {branches} ramos (limite {SWITCH_BRANCH_THRESHOLD})."],
         line_start=getattr(node, "lineno", None),
@@ -92,7 +91,7 @@ def _score_long_parameter(tree: ast.AST) -> SmellSignal | None:
     params, node = worst
     score = min(1.0, 0.4 + 0.1 * (params - LONG_PARAMETER_THRESHOLD + 1))
     return SmellSignal(
-        smell=BadSmellType.LONG_PARAMETER,
+        smell=SmellType.LONG_PARAMETER,
         score=score,
         evidence=[f"Função `{node.name}` com {params} parâmetros (limite {LONG_PARAMETER_THRESHOLD})."],
         line_start=node.lineno,
@@ -125,59 +124,11 @@ def _score_god_class(tree: ast.AST) -> SmellSignal | None:
     members, node = worst
     score = min(1.0, 0.5 + 0.05 * (members - GOD_CLASS_MEMBER_THRESHOLD))
     return SmellSignal(
-        smell=BadSmellType.GOD_CLASS,
+        smell=SmellType.GOD_CLASS,
         score=score,
         evidence=[f"Classe `{node.name}` com {members} membros (métodos + atributos; limite {GOD_CLASS_MEMBER_THRESHOLD})."],
         line_start=node.lineno,
         line_end=getattr(node, "end_lineno", None),
-    )
-
-
-def _hardcoded_dep_name(func: ast.expr) -> str | None:
-    """Name of a hardcoded collaborator: a class ``Foo(...)`` or a qualified
-    factory ``mod.connect(...)``. Bare builtin calls (``list()``) return None."""
-    if isinstance(func, ast.Name):
-        return func.id if func.id[:1].isupper() else None
-    if isinstance(func, ast.Attribute):
-        return func.attr
-    return None
-
-
-def _assigns_to_self(targets: list[ast.expr]) -> bool:
-    return any(
-        isinstance(t, ast.Attribute)
-        and isinstance(t.value, ast.Name)
-        and t.value.id == "self"
-        for t in targets
-    )
-
-
-def _score_tight_coupling(tree: ast.AST) -> SmellSignal | None:
-    """Concrete collaborators instantiated inside a class (no injection point)."""
-    hits: list[tuple[str, int]] = []
-    for cls in ast.walk(tree):
-        if not isinstance(cls, ast.ClassDef):
-            continue
-        for node in ast.walk(cls):
-            # self.x = SomeClass(...) / sqlite3.connect(...) — built, not injected.
-            if (
-                isinstance(node, ast.Assign)
-                and isinstance(node.value, ast.Call)
-                and _assigns_to_self(node.targets)
-            ):
-                name = _hardcoded_dep_name(node.value.func)
-                if name is not None:
-                    hits.append((name, node.lineno))
-    if not hits:
-        return None
-    names = ", ".join(sorted({n for n, _ in hits}))
-    score = min(1.0, 0.4 + 0.15 * len(hits))
-    return SmellSignal(
-        smell=BadSmellType.TIGHT_COUPLING,
-        score=score,
-        evidence=[f"{len(hits)} instanciações concretas dentro de classe (sem injeção): {names}."],
-        line_start=min(line for _, line in hits),
-        line_end=max(line for _, line in hits),
     )
 
 
@@ -203,7 +154,7 @@ def _score_duplicated_code(tree: ast.AST) -> SmellSignal | None:
             nodes = [node for _, node in occurrences]
             owners = ", ".join(sorted(classes))
             return SmellSignal(
-                smell=BadSmellType.DUPLICATED_CODE,
+                smell=SmellType.DUPLICATED_CODE,
                 score=min(1.0, 0.4 + 0.15 * len(classes)),
                 evidence=[f"Método `{method}` reimplementado em {len(classes)} classes: {owners}."],
                 line_start=nodes[0].lineno,
@@ -212,66 +163,20 @@ def _score_duplicated_code(tree: ast.AST) -> SmellSignal | None:
     return None
 
 
-_DETECTORS = (
-    _score_complex_switch,
-    _score_long_parameter,
-    _score_god_class,
-    _score_tight_coupling,
-    _score_duplicated_code,
-)
-
-
-def score_smells(source_code: str) -> list[SmellSignal]:
-    """Return probable smells ranked by descending heuristic score.
-
-    Empty list means no in-scope smell triggered any heuristic — a strong prior
-    for ``NO_SMELL`` that the Detector should only override with clear evidence.
-    """
-    try:
-        tree = ast.parse(source_code)
-    except SyntaxError:
-        return []
-
-    signals = [signal for detector in _DETECTORS if (signal := detector(tree)) is not None]
-    signals.sort(key=lambda s: s.score, reverse=True)
-    return signals
-
-
-# Scorers for the 4 smells in scope of the new multi-detector (app/services/
-# multi_detector_service.py) — excludes Tight Coupling, dropped from that scope.
 _SCORERS_BY_SMELL = {
-    BadSmellType.COMPLEX_SWITCH: _score_complex_switch,
-    BadSmellType.LONG_PARAMETER: _score_long_parameter,
-    BadSmellType.GOD_CLASS: _score_god_class,
-    BadSmellType.DUPLICATED_CODE: _score_duplicated_code,
+    SmellType.COMPLEX_SWITCH: _score_complex_switch,
+    SmellType.LONG_PARAMETER: _score_long_parameter,
+    SmellType.GOD_CLASS: _score_god_class,
+    SmellType.DUPLICATED_CODE: _score_duplicated_code,
 }
 
 
-def score_all_smells(source_code: str) -> dict[BadSmellType, SmellSignal | None]:
-    """Like ``score_smells``, but returns one slot per in-scope smell (None when
-    that smell's heuristic did not trigger) instead of a filtered, ranked list.
+def score_all_smells(source_code: str) -> dict[SmellType, SmellSignal | None]:
+    """Return one slot per in-scope smell (None when that smell's heuristic did
+    not trigger).
 
     Used by the multi-detector's phase 2, which needs an explicit "no evidence"
     result per smell to inform phase 3's LLM prompts — not just the winners.
     """
     tree = ast.parse(source_code)
     return {smell: scorer(tree) for smell, scorer in _SCORERS_BY_SMELL.items()}
-
-
-def format_prior(signals: list[SmellSignal]) -> str:
-    """Render the ranked signals as a prompt block for the Detector."""
-    if not signals:
-        return (
-            "Nenhum smell do escopo disparou a matriz heurística. "
-            "Prior forte para `No Smell Detected` — só contrarie com evidência clara no código."
-        )
-    lines = ["Smells prováveis segundo a matriz heurística (ordenados por score):"]
-    for rank, sig in enumerate(signals, start=1):
-        evidence = " ".join(sig.evidence)
-        location = f"linhas {sig.line_start}-{sig.line_end}" if sig.line_start else "linha n/d"
-        lines.append(f"{rank}. {sig.smell.value} (score {sig.score:.2f}, {location}) — {evidence}")
-    lines.append(
-        "Confirme ou refute o candidato de maior score com base no código. "
-        "A decisão final é sua, mas justifique divergências do prior."
-    )
-    return "\n".join(lines)

@@ -3,50 +3,77 @@ from __future__ import annotations
 
 import asyncio
 
+import pytest
+
 from app.core.schemas import (
-    BadSmellType,
     CriticEvalSample,
-    DesignPatternType,
     DetectorEvalSample,
+    PatternType,
     RefactorEvalSample,
 )
 
+_GOD = "God Class"
+_FACADE = "Facade"
+_SWITCH = "Complex/Long Switch Statements"
+_STRATEGY = "Strategy Pattern"
 
-def test_detector_confusion_matrix(evaluation_service, write_text, write_json):
-    write_text("p1.py", "GOD")  # smell -> detected: TP
-    write_text("p2.py", "NONE")  # smell -> missed: FN
-    write_text("c1.py", "NONE")  # clean -> clean: TN
-    write_text("c2.py", "GOD")  # clean -> flagged: FP
+
+def test_detector_multilabel_confusion_matrix(evaluation_service, write_example, write_json):
+    # o fake detecta {God Class, Facade} quando o código contém "GOD" e nada caso contrário
+    write_example("p1.py", "GOD")  # esperado {God, Facade} -> 2 TP + 6 TN, exato
+    write_example("p2.py", "NONE")  # esperado {God, Facade} -> 2 FN + 6 TN
+    write_example("c1.py", "NONE")  # esperado {} -> 8 TN, exato
+    write_example("c2.py", "GOD")  # esperado {} -> 2 FP + 6 TN
     write_json(
-        "ground_truth.json",
+        "ground_truth_detector.json",
         [
-            {"file": "p1.py", "smell_type": "God Class", "expected_pattern": "Facade/SRP"},
-            {"file": "p2.py", "smell_type": "Long Parameter List", "expected_pattern": "Builder/Parameter Object"},
-            {"file": "c1.py", "smell_type": "No Smell Detected", "expected_pattern": "None"},
-            {"file": "c2.py", "smell_type": "No Smell Detected", "expected_pattern": "None"},
+            {"file": "p1.py", "problems": [_GOD, _FACADE]},
+            {"file": "p2.py", "problems": [_GOD, _FACADE]},
+            {"file": "c1.py", "problems": []},
+            {"file": "c2.py", "problems": []},
         ],
     )
     m = asyncio.run(evaluation_service.evaluate_detector())
 
-    assert (m.confusion.true_positive, m.confusion.false_negative) == (1, 1)
-    assert (m.confusion.false_positive, m.confusion.true_negative) == (1, 1)
+    assert m.total_files == 4
+    assert (m.confusion.true_positive, m.confusion.false_negative) == (2, 2)
+    assert (m.confusion.false_positive, m.confusion.true_negative) == (2, 26)
+    assert m.confusion.total == 32  # 4 arquivos × 8 tipos
     assert m.precision == 0.5
     assert m.recall == 0.5
-    assert m.accuracy == 0.5
-    assert m.specificity == 0.5
-    assert m.false_positive_rate == 0.5
-    assert m.false_negative_rate == 0.5
-    assert m.type_accuracy == 1.0  # o único TP teve o tipo certo
+    assert m.exact_match_rate == 0.5  # p1 e c1 exatos
 
 
-def test_refactor_quality_metrics(evaluation_service, write_text, write_json):
-    write_text("p1.py", "def alpha():\n    return 1\n")
-    write_text("p2.py", "def beta():\n    return 2\n")
+def test_detector_invalid_python_is_reported_not_counted(
+    evaluation_service, write_example, write_json
+):
+    write_example("ok.py", "GOD")
+    write_example("broken.py", "BROKEN")  # fake levanta InvalidPythonCodeError
     write_json(
-        "ground_truth.json",
+        "ground_truth_detector.json",
         [
-            {"file": "p1.py", "smell_type": "God Class", "expected_pattern": "Facade/SRP"},
-            {"file": "p2.py", "smell_type": "Long Parameter List", "expected_pattern": "Builder/Parameter Object"},
+            {"file": "ok.py", "problems": [_GOD, _FACADE]},
+            {"file": "broken.py", "problems": [_GOD]},
+        ],
+    )
+    m = asyncio.run(evaluation_service.evaluate_detector())
+
+    assert m.total_files == 2
+    assert m.confusion.total == 8  # só ok.py entra na matriz
+    error_row = next(r for r in m.per_file if r["file"] == "broken.py")
+    assert error_row["error"]
+    assert m.exact_match_rate == 1.0  # entre os avaliados, ok.py foi exato
+
+
+def test_refactor_quality_metrics(evaluation_service, write_example, write_json):
+    write_example("p1.py", "def alpha():\n    return 1\n")
+    write_example("p2.py", "def beta():\n    return 2\n")
+    write_json(
+        "ground_truth_detector.json",
+        [
+            {"file": "p1.py", "problems": [_GOD, _FACADE]},
+            {"file": "p2.py", "problems": ["Long Parameter List", "Builder"]},
+            {"file": "clean.py", "problems": []},  # limpo — fora do alvo do Refatorador
         ],
     )
     m = asyncio.run(evaluation_service.evaluate_refactor())
@@ -60,56 +87,64 @@ def test_refactor_quality_metrics(evaluation_service, write_text, write_json):
     assert m.avg_iterations == 2.0
 
 
-def test_critic_confusion_matrix(evaluation_service, write_text, write_json):
-    write_text("prob.py", "def x():\n    return 0\n")
-    write_text("ok1.py", "APPROVE")  # correta, aprovada: TP
-    write_text("ok2.py", "REJECT")  # correta, reprovada: FN
-    write_text("bad1.py", "REJECT")  # incorreta, reprovada: TN
-    write_text("bad2.py", "APPROVE")  # incorreta, aprovada: FP
+def test_refactor_expected_pattern_derived_from_smell_when_absent(
+    evaluation_service, write_example, write_json
+):
+    """Entrada só com smell (sem pattern explícito) deriva o pattern canônico."""
+    write_example("p1.py", "def alpha():\n    return 1\n")
     write_json(
-        "critic_truth.json",
-        [
-            {"solution_file": "ok1.py", "problem_file": "prob.py", "applied_pattern": "Strategy Pattern", "expected_approved": True},
-            {"solution_file": "ok2.py", "problem_file": "prob.py", "applied_pattern": "Strategy Pattern", "expected_approved": True},
-            {"solution_file": "bad1.py", "problem_file": "prob.py", "applied_pattern": "Strategy Pattern", "expected_approved": False, "defect_kind": "logic"},
-            {"solution_file": "bad2.py", "problem_file": "prob.py", "applied_pattern": "Strategy Pattern", "expected_approved": False, "defect_kind": "logic"},
-        ],
+        "ground_truth_detector.json",
+        [{"file": "p1.py", "problems": [_GOD]}],  # sem "Facade" explícito
     )
-    m = asyncio.run(evaluation_service.evaluate_critic())
+    m = asyncio.run(evaluation_service.evaluate_refactor())
 
-    assert (m.confusion.true_positive, m.confusion.false_negative) == (1, 1)
-    assert (m.confusion.false_positive, m.confusion.true_negative) == (1, 1)
-    assert m.false_accept_rate == 0.5  # 1 incorreta aprovada de 2 incorretas
-    assert m.false_reject_rate == 0.5  # 1 correta reprovada de 2 corretas
-    assert m.accuracy == 0.5
+    assert m.total == 1
+    assert m.per_file[0]["expected_pattern"] == _FACADE
+    assert m.pattern_accuracy == 1.0  # fake aplica Facade em p1.py
 
 
 def test_detector_evaluates_submitted_samples(evaluation_service):
     samples = [
-        DetectorEvalSample(source_code="GOD", expected_smell=BadSmellType.GOD_CLASS, name="ad-hoc-1"),
-        DetectorEvalSample(source_code="NONE", expected_smell=BadSmellType.GOD_CLASS, name="ad-hoc-2"),
-        DetectorEvalSample(source_code="NONE", expected_smell=BadSmellType.NO_SMELL, name="ad-hoc-3"),
-        DetectorEvalSample(source_code="GOD", expected_smell=BadSmellType.NO_SMELL, name="ad-hoc-4"),
+        DetectorEvalSample(source_code="GOD", expected_problems=[_GOD, _FACADE], name="ad-hoc-1"),
+        DetectorEvalSample(source_code="NONE", expected_problems=[_GOD, _FACADE], name="ad-hoc-2"),
+        DetectorEvalSample(source_code="NONE", expected_problems=[], name="ad-hoc-3"),
+        DetectorEvalSample(source_code="GOD", expected_problems=[], name="ad-hoc-4"),
     ]
     m = asyncio.run(evaluation_service.evaluate_detector(samples=samples))
 
-    assert (m.confusion.true_positive, m.confusion.false_negative) == (1, 1)
-    assert (m.confusion.false_positive, m.confusion.true_negative) == (1, 1)
+    assert m.total_files == 4
+    assert (m.confusion.true_positive, m.confusion.false_negative) == (2, 2)
+    assert (m.confusion.false_positive, m.confusion.true_negative) == (2, 26)
     assert {row["file"] for row in m.per_file} == {"ad-hoc-1", "ad-hoc-2", "ad-hoc-3", "ad-hoc-4"}
     assert m.precision == 0.5
     assert m.recall == 0.5
+
+
+def test_detector_sample_with_multiple_smells(evaluation_service):
+    samples = [
+        DetectorEvalSample(
+            source_code="GOD SWITCH",
+            expected_problems=[_GOD, _FACADE, _SWITCH, _STRATEGY],
+            name="multi",
+        ),
+    ]
+    m = asyncio.run(evaluation_service.evaluate_detector(samples=samples))
+
+    assert m.confusion.true_positive == 4
+    assert m.confusion.false_negative == 0
+    assert m.exact_match_rate == 1.0
 
 
 def test_refactor_evaluates_submitted_samples(evaluation_service):
     samples = [
         RefactorEvalSample(
             source_code="def alpha():\n    return 1\n",
-            expected_pattern=DesignPatternType.FACADE_SRP,
+            expected_pattern=PatternType.FACADE,
             name="p1.py",
         ),
         RefactorEvalSample(
             source_code="def beta():\n    return 2\n",
-            expected_pattern=DesignPatternType.BUILDER,
+            expected_pattern=PatternType.BUILDER,
             name="p2.py",
         ),
     ]
@@ -126,14 +161,14 @@ def test_critic_evaluates_submitted_samples(evaluation_service):
         CriticEvalSample(
             problem_code="def x():\n    return 0\n",
             solution_code="APPROVE",
-            applied_pattern=DesignPatternType.STRATEGY,
+            applied_pattern=PatternType.STRATEGY,
             expected_approved=True,
             name="ok1",
         ),
         CriticEvalSample(
             problem_code="def x():\n    return 0\n",
             solution_code="REJECT",
-            applied_pattern=DesignPatternType.STRATEGY,
+            applied_pattern=PatternType.STRATEGY,
             expected_approved=False,
             defect_kind="logic",
             name="bad1",
@@ -148,33 +183,40 @@ def test_critic_evaluates_submitted_samples(evaluation_service):
     assert {row["solution_file"] for row in m.per_file} == {"ok1", "bad1"}
 
 
-def test_evaluate_all_mixes_dataset_and_submitted_samples(evaluation_service, write_text, write_json):
-    """Detector ad-hoc + Refatorador/Revisor dataset numa mesma chamada."""
-    write_text("prob.py", "def x():\n    return 0\n")
-    write_text("p1.py", "GOD")
-    write_text("ok1.py", "APPROVE")
+def test_critic_without_samples_raises(evaluation_service):
+    with pytest.raises(FileNotFoundError):
+        asyncio.run(evaluation_service.evaluate_critic())
+
+
+def test_evaluate_all_mixes_dataset_and_submitted_samples(
+    evaluation_service, write_example, write_json
+):
+    """Detector ad-hoc + Refatorador dataset + Critic ad-hoc numa mesma chamada."""
+    write_example("p1.py", "GOD")
     write_json(
-        "ground_truth.json",
-        [{"file": "p1.py", "smell_type": "God Class", "expected_pattern": "Facade/SRP"}],
-    )
-    write_json(
-        "critic_truth.json",
-        [{
-            "solution_file": "ok1.py",
-            "problem_file": "prob.py",
-            "applied_pattern": "Strategy Pattern",
-            "expected_approved": True,
-        }],
+        "ground_truth_detector.json",
+        [{"file": "p1.py", "problems": [_GOD, _FACADE]}],
     )
     detector_samples = [
-        DetectorEvalSample(source_code="GOD", expected_smell=BadSmellType.GOD_CLASS, name="ad-hoc"),
+        DetectorEvalSample(source_code="GOD", expected_problems=[_GOD, _FACADE], name="ad-hoc"),
+    ]
+    critic_samples = [
+        CriticEvalSample(
+            problem_code="def x():\n    return 0\n",
+            solution_code="APPROVE",
+            applied_pattern=PatternType.STRATEGY,
+            expected_approved=True,
+            name="ok1.py",
+        ),
     ]
 
     report = asyncio.run(
-        evaluation_service.evaluate_all(detector_samples=detector_samples)
+        evaluation_service.evaluate_all(
+            detector_samples=detector_samples, critic_samples=critic_samples
+        )
     )
 
-    assert report.detector.total == 1
+    assert report.detector.total_files == 1
     assert {row["file"] for row in report.detector.per_file} == {"ad-hoc"}
     assert report.refactor.total == 1
     assert {row["file"] for row in report.refactor.per_file} == {"p1.py"}
@@ -182,12 +224,15 @@ def test_evaluate_all_mixes_dataset_and_submitted_samples(evaluation_service, wr
     assert {row["solution_file"] for row in report.critic.per_file} == {"ok1.py"}
 
 
-def test_evaluate_detector_dataset_path_still_works(evaluation_service, write_text, write_json):
-    """Regressão: passar samples=None continua lendo ground_truth.json."""
-    write_text("p1.py", "GOD")
+def test_evaluate_detector_dataset_path_still_works(
+    evaluation_service, write_example, write_json
+):
+    """Regressão: passar samples=None continua lendo ground_truth_detector.json."""
+    write_example("p1.py", "GOD")
     write_json(
-        "ground_truth.json",
-        [{"file": "p1.py", "smell_type": "God Class", "expected_pattern": "Facade/SRP"}],
+        "ground_truth_detector.json",
+        [{"file": "p1.py", "problems": [_GOD, _FACADE]}],
     )
     m = asyncio.run(evaluation_service.evaluate_detector())
-    assert m.confusion.true_positive == 1
+    assert m.confusion.true_positive == 2
+    assert m.exact_match_rate == 1.0

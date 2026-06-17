@@ -1,7 +1,7 @@
 """Deterministic tests for the offline refactoring-quality heuristics."""
 from __future__ import annotations
 
-from app.core.schemas import DesignPatternType
+from app.core.schemas import PatternType
 from app.services.quality_checks import (
     api_preservation,
     assess_refactoring,
@@ -33,24 +33,24 @@ def test_api_preservation_fails_on_syntax_error(original_code, refactored_with_s
 
 
 def test_pattern_matches():
-    assert pattern_matches(DesignPatternType.STRATEGY, DesignPatternType.STRATEGY)
-    assert not pattern_matches(DesignPatternType.STRATEGY, DesignPatternType.BUILDER)
+    assert pattern_matches(PatternType.STRATEGY, PatternType.STRATEGY)
+    assert not pattern_matches(PatternType.STRATEGY, PatternType.BUILDER)
 
 
 def test_assess_refactoring_all_axes(original_code):
     good = assess_refactoring(
         original_code,
         original_code,
-        DesignPatternType.STRATEGY,
-        DesignPatternType.STRATEGY,
+        PatternType.STRATEGY,
+        PatternType.STRATEGY,
     )
     assert good["is_correct"] is True
 
     wrong_pattern = assess_refactoring(
         original_code,
         original_code,
-        DesignPatternType.BUILDER,
-        DesignPatternType.STRATEGY,
+        PatternType.BUILDER,
+        PatternType.STRATEGY,
     )
     assert wrong_pattern["pattern_correct"] is False
     assert wrong_pattern["is_correct"] is False

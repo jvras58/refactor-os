@@ -6,13 +6,18 @@ from pathlib import Path
 import pytest
 
 from app.core import config
+from app.core.exceptions import InvalidPythonCodeError
 from app.core.schemas import (
-    BadSmellType,
-    DesignPatternType,
+    ALL_TYPE_NAMES,
+    DetectionScanResult,
+    HeuristicScan,
+    PatternType,
     RefactoringProposal,
     RefactorResult,
     ReflectionReview,
-    SmellDetection,
+    SmellHeuristicSignal,
+    SmellType,
+    TypeDetectionResult,
 )
 from app.services.evaluation_service import EvaluationService
 
@@ -74,33 +79,72 @@ def read_dataset_json(dataset_root):
     return _read
 
 
+def make_scan(detected: list[str]) -> DetectionScanResult:
+    """Builds a full 8-type scan with the given type names marked as detected."""
+    heuristic_scan = HeuristicScan(
+        signals={
+            smell: SmellHeuristicSignal(smell_type=smell, possible=False, score=0.0)
+            for smell in SmellType
+        }
+    )
+    type_results = [
+        TypeDetectionResult(
+            type_name=name,
+            detected=name in detected,
+            evidencias=[],
+            reasoning="fake",
+        )
+        for name in ALL_TYPE_NAMES
+    ]
+    return DetectionScanResult(heuristic_scan=heuristic_scan, type_results=type_results)
+
+
 class FakeRefactorService:
     """Scripted stand-in: decisions keyed by sentinels in the source/solution."""
 
-    async def detect(self, source_code: str) -> SmellDetection:
+    async def detect(self, source_code: str) -> DetectionScanResult:
+        if "BROKEN" in source_code:
+            raise InvalidPythonCodeError("código não compila como Python: fake", line=1)
+        detected: list[str] = []
         if "GOD" in source_code:
-            return SmellDetection(
-                has_smell=True, smell_type=BadSmellType.GOD_CLASS, reasoning="fake"
-            )
-        return SmellDetection(has_smell=False, smell_type=BadSmellType.NO_SMELL, reasoning="fake")
+            detected += [SmellType.GOD_CLASS.value, PatternType.FACADE.value]
+        if "SWITCH" in source_code:
+            detected += [SmellType.COMPLEX_SWITCH.value, PatternType.STRATEGY.value]
+        return make_scan(detected)
 
     async def run(self, request) -> RefactorResult:
-        detection = SmellDetection(has_smell=True, smell_type=BadSmellType.GOD_CLASS, reasoning="fake")
+        scan = make_scan([SmellType.GOD_CLASS.value, PatternType.FACADE.value])
         if request.file_name == "p1.py":
             proposal = RefactoringProposal(
-                applied_pattern=DesignPatternType.FACADE_SRP,
+                applied_pattern=PatternType.FACADE,
                 refactored_code="def alpha():\n    return 1\n",
                 architectural_explanation="fake",
                 expected_benefits=["x"],
             )
-            return RefactorResult(detection=detection, proposal=proposal, approved=True, iterations=1)
+            return RefactorResult(
+                detection=scan,
+                detected_problems=scan.detected_names(),
+                target_smell=SmellType.GOD_CLASS,
+                target_pattern=PatternType.FACADE,
+                proposal=proposal,
+                approved=True,
+                iterations=1,
+            )
         proposal = RefactoringProposal(
-            applied_pattern=DesignPatternType.STRATEGY,  # errado p/ Long Parameter
+            applied_pattern=PatternType.STRATEGY,  # errado p/ o esperado Builder
             refactored_code="def gamma():\n    return 2\n",  # perde 'beta'
             architectural_explanation="fake",
             expected_benefits=["x"],
         )
-        return RefactorResult(detection=detection, proposal=proposal, approved=False, iterations=3)
+        return RefactorResult(
+            detection=scan,
+            detected_problems=scan.detected_names(),
+            target_smell=SmellType.GOD_CLASS,
+            target_pattern=PatternType.FACADE,
+            proposal=proposal,
+            approved=False,
+            iterations=3,
+        )
 
     async def review(self, original: str, proposal: RefactoringProposal) -> ReflectionReview:
         approved = "APPROVE" in proposal.refactored_code
@@ -116,6 +160,20 @@ def dataset_dir(tmp_path):
 def write_text(dataset_dir):
     def _write(name: str, content: str):
         path = dataset_dir / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
+        return path
+
+    return _write
+
+
+@pytest.fixture
+def write_example(dataset_dir):
+    """Writes an example file where the detector evaluation looks for it."""
+
+    def _write(name: str, content: str):
+        path = dataset_dir / "examples" / name
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8")
         return path
 

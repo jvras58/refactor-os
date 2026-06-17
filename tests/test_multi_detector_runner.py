@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 
-from app.core.multi_detector_exceptions import InvalidPythonCodeError
+from app.core.exceptions import InvalidPythonCodeError
 from app.services.multi_detector_dataset_runner import MultiDetectorDatasetRunner
 
 

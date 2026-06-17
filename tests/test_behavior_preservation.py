@@ -6,7 +6,7 @@ correct — the public API is preserved, but the behaviour is not.
 """
 from __future__ import annotations
 
-from app.core.schemas import DesignPatternType
+from app.core.schemas import PatternType
 from app.services.quality_checks import assess_refactoring
 
 _ORIGINAL = (
@@ -50,7 +50,7 @@ _FAITHFUL = (
 
 
 def test_dropping_exception_is_not_correct():
-    a = assess_refactoring(_ORIGINAL, _DROPS_EXCEPTION, DesignPatternType.STRATEGY, DesignPatternType.STRATEGY)
+    a = assess_refactoring(_ORIGINAL, _DROPS_EXCEPTION, PatternType.STRATEGY, PatternType.STRATEGY)
     assert a["api_preserved"] is True          # wrapper keeps calculate_shipping
     assert a["behavior_preserved"] is False    # but ValueError + literals were dropped
     assert a["is_correct"] is False
@@ -58,6 +58,6 @@ def test_dropping_exception_is_not_correct():
 
 
 def test_faithful_refactor_is_correct():
-    a = assess_refactoring(_ORIGINAL, _FAITHFUL, DesignPatternType.STRATEGY, DesignPatternType.STRATEGY)
+    a = assess_refactoring(_ORIGINAL, _FAITHFUL, PatternType.STRATEGY, PatternType.STRATEGY)
     assert a["behavior_preserved"] is True
     assert a["is_correct"] is True

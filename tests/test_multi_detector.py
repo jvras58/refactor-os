@@ -10,14 +10,14 @@ from __future__ import annotations
 
 import pytest
 
-from app.core.multi_detector_exceptions import InvalidPythonCodeError
-from app.core.multi_detector_schemas import (
+from app.core.exceptions import InvalidPythonCodeError
+from app.core.schemas import (
     DetectionScanResult,
     HeuristicScan,
     SmellHeuristicSignal,
+    SmellType,
     TypeDetectionResult,
 )
-from app.core.multi_detector_types import SmellType
 from app.services.multi_detector_service import GroundTruthArrayCompiler, MultiDetectorService
 
 # --------------------------------------------------------------- phase 1

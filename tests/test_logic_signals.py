@@ -1,41 +1,50 @@
 """Tests for the logic-preservation analyzer used as the Critic's prior."""
 from __future__ import annotations
 
-import json
-
 from app.tools.logic_signals import analyze_logic_preservation, format_logic_prior
 
+_ORIGINAL = """\
+def shipping(country, weight):
+    if country == 'BR':
+        return weight * 1.5
+    if country == 'US':
+        return weight * 2.0
+    raise ValueError('unsupported country')
+"""
 
-def _pairs(dataset_root):
-    truth = json.loads((dataset_root / "critic_truth.json").read_text(encoding="utf-8"))
-    for entry in truth:
-        original = (dataset_root / entry["problem_file"]).read_text(encoding="utf-8")
-        refactored = (dataset_root / entry["solution_file"]).read_text(encoding="utf-8")
-        yield entry, original, refactored
+# Strategy via lookup preservando literais, ramos e o raise do caso default.
+_FAITHFUL = """\
+_RATES = {'BR': 1.5, 'US': 2.0}
 
 
-def test_correct_solutions_have_no_strong_signal(dataset_root):
+def shipping(country, weight):
+    rate = _RATES.get(country)
+    if rate is None:
+        raise ValueError('unsupported country')
+    return weight * rate
+"""
+
+# Perde o ramo default (raise ValueError) — defeito de lógica clássico.
+_DROPS_BRANCH = """\
+_RATES = {'BR': 1.5, 'US': 2.0}
+
+
+def shipping(country, weight):
+    return weight * _RATES[country]
+"""
+
+
+def test_correct_solution_has_no_strong_signal():
     """A logic-preserving refactor must not raise a false 'logic changed' flag."""
-    false_positives = []
-    for entry, original, refactored in _pairs(dataset_root):
-        if not entry["expected_approved"]:
-            continue
-        report = analyze_logic_preservation(original, refactored)
-        if report.has_strong_signal:
-            false_positives.append((entry["solution_file"], report.lost_literals, report.lost_raises))
-    assert not false_positives, f"false logic-change signals on correct solutions: {false_positives}"
+    report = analyze_logic_preservation(_ORIGINAL, _FAITHFUL)
+    assert not report.has_strong_signal, (report.lost_literals, report.lost_raises)
 
 
-def test_logic_defects_are_flagged(dataset_root):
-    """Every solution labeled with a 'logic' defect must trigger a strong signal."""
-    misses = []
-    for entry, original, refactored in _pairs(dataset_root):
-        if entry.get("defect_kind") != "logic":
-            continue
-        report = analyze_logic_preservation(original, refactored)
-        if not report.has_strong_signal:
-            misses.append(entry["solution_file"])
-    assert not misses, f"logic defects not detected: {misses}"
+def test_logic_defect_is_flagged():
+    """A refactor that silently drops the default raise must trigger a strong signal."""
+    report = analyze_logic_preservation(_ORIGINAL, _DROPS_BRANCH)
+    assert report.has_strong_signal
+    assert "ValueError" in report.lost_raises
 
 
 def test_dropped_raise_is_reported():

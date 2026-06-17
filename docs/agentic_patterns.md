@@ -95,7 +95,6 @@ app/skills/
 ├── strategy-pattern/SKILL.md
 ├── builder-parameter-object/SKILL.md
 ├── facade-srp/SKILL.md
-├── dependency-injection/SKILL.md   # legado — Tight Coupling/DI saiu do escopo atual
 └── template-method/SKILL.md
 ```
 

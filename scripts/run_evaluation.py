@@ -34,28 +34,31 @@ def _confusion_block(cm: ConfusionMatrix, positive: str, negative: str) -> list[
 
 
 def format_detector(m) -> str:
-    lines = ["", "=" * 68, "1) AGENTE RASTREADOR (Detector)", "=" * 68]
-    lines += _confusion_block(m.confusion, "tem smell", "código limpo")
+    lines = ["", "=" * 68, "1) AGENTE RASTREADOR (Detector — multi-label)", "=" * 68]
+    lines += _confusion_block(m.confusion, "tipo presente", "tipo ausente")
     lines += [
         "",
+        f"  Decisões avaliadas: {m.confusion.total} (arquivos: {m.total_files} × 8 tipos)",
         f"  Falsos Negativos (deixou passar) : {m.confusion.false_negative}  | FNR={_pct(m.false_negative_rate)}",
         f"  Falsos Positivos (viu onde não há): {m.confusion.false_positive}  | FPR={_pct(m.false_positive_rate)}",
         "",
         f"  Precision={_pct(m.precision)}  Recall={_pct(m.recall)}  F1={_pct(m.f1)}",
         f"  Accuracy={_pct(m.accuracy)}  Specificity={_pct(m.specificity)}",
-        f"  Acerto do tipo de smell (entre detectados): {_pct(m.type_accuracy)}",
+        f"  Conjunto exato por arquivo (exact match): {_pct(m.exact_match_rate)}",
         "",
-        f"  {'arquivo':<42}{'classe':<8}{'esperado->detectado'}",
+        f"  {'arquivo':<46}{'exato':<7}{'faltou / sobrou'}",
         "  " + "-" * 64,
     ]
     for r in m.per_file:
         if r.get("error"):
-            lines.append(f"  {r['file']:<42}{'ERRO':<8}")
+            lines.append(f"  {r['file']:<46}{'ERRO':<7}")
             continue
-        lines.append(
-            f"  {r['file']:<42}{r['classification']:<8}"
-            f"{r['expected_smell']} -> {r['detected_smell']}"
-        )
+        detail = ""
+        if r["missing"]:
+            detail += f"faltou: {', '.join(r['missing'])}"
+        if r["extra"]:
+            detail += ("  " if detail else "") + f"sobrou: {', '.join(r['extra'])}"
+        lines.append(f"  {r['file']:<46}{'sim' if r['exact_match'] else 'não':<7}{detail}")
     return "\n".join(lines)
 
 
@@ -113,7 +116,10 @@ def _check(value: bool) -> str:
 def _md_detector(d: dict) -> list[str]:
     cm = d["confusion"]
     out = [
-        "## 1. Agente Rastreador (Detector)",
+        "## 1. Agente Rastreador (Detector — multi-label)",
+        "",
+        f"Cada arquivo gera 8 decisões binárias (4 smells + 4 patterns) — "
+        f"{d['total_files']} arquivos avaliados.",
         "",
         f"**Falsos Negativos (deixou passar):** {cm['false_negative']}  •  "
         f"**Falsos Positivos (viu onde não há):** {cm['false_positive']}",
@@ -127,26 +133,28 @@ def _md_detector(d: dict) -> list[str]:
         f"| F1 | {d['f1']:.3f} |",
         f"| FPR (taxa de falso positivo) | {d['false_positive_rate']:.3f} |",
         f"| FNR (taxa de falso negativo) | {d['false_negative_rate']:.3f} |",
-        f"| Acerto do tipo de smell | {d['type_accuracy']:.3f} |",
+        f"| Exact match (conjunto por arquivo) | {d['exact_match_rate']:.3f} |",
         "",
-        "### Matriz de confusão",
+        "### Matriz de confusão (pares arquivo × tipo)",
         "",
-        "| | Detectou smell | Disse limpo |",
+        "| | Detectou o tipo | Não detectou |",
         "|---|:---:|:---:|",
-        f"| **Esperado: tem smell** | {cm['true_positive']} (TP) | {cm['false_negative']} (FN) |",
-        f"| **Esperado: limpo** | {cm['false_positive']} (FP) | {cm['true_negative']} (TN) |",
+        f"| **Tipo presente** | {cm['true_positive']} (TP) | {cm['false_negative']} (FN) |",
+        f"| **Tipo ausente** | {cm['false_positive']} (FP) | {cm['true_negative']} (TN) |",
         "",
         "### Detalhe por arquivo",
         "",
-        "| Arquivo | Classe | Esperado | Detectado |",
+        "| Arquivo | Exato | Esperado | Detectado |",
         "|---|:---:|---|---|",
     ]
     for r in d["per_file"]:
         if r.get("error"):
-            out.append(f"| {r['file']} | ERRO | {r['expected_smell']} | — |")
+            out.append(f"| {r['file']} | ERRO | {', '.join(r['expected_problems'])} | — |")
             continue
         out.append(
-            f"| {r['file']} | {r['classification']} | {r['expected_smell']} | {r['detected_smell']} |"
+            f"| {r['file']} | {_check(r['exact_match'])} "
+            f"| {', '.join(r['expected_problems']) or '—'} "
+            f"| {', '.join(r['detected_problems']) or '—'} |"
         )
     out.append("")
     return out
@@ -264,9 +272,13 @@ async def main() -> int:
         payload["refactor"] = m.model_dump()
         rendered.append(format_refactor(m))
     if run_all or args.critic:
-        m = await service.evaluate_critic()
-        payload["critic"] = m.model_dump()
-        rendered.append(format_critic(m))
+        try:
+            m = await service.evaluate_critic()
+        except FileNotFoundError as exc:
+            rendered.append(f"\n3) AGENTE REVISOR (Critic): pulado — {exc}")
+        else:
+            payload["critic"] = m.model_dump()
+            rendered.append(format_critic(m))
 
     if args.json:
         args.json.parent.mkdir(parents=True, exist_ok=True)

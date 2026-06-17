@@ -1,4 +1,4 @@
-"""CLI para rodar o novo MultiDetectorService sobre os exemplos do dataset_2.
+"""CLI para rodar o novo MultiDetectorService sobre os exemplos do dataset.
 
 Cada arquivo custa 8 chamadas reais de LLM (fase 3, uma por smell/pattern), throttled a 20s entre chamadas
 (``app.utils.retry``) — 30 arquivos = ~80+ minutos. Use ``--limit`` para testar com
@@ -13,7 +13,7 @@ Exemplos:
     # testar com 2 arquivos antes de rodar tudo
     uv run python scripts/run_multi_detector.py --limit 2 --log-level DEBUG
 
-    # rodar o dataset_2/examples inteiro
+    # rodar o dataset/examples inteiro
     uv run python scripts/run_multi_detector.py
 
     # continuar de onde parou (default — não precisa de flag)
@@ -31,8 +31,8 @@ from pathlib import Path
 
 from app.services.multi_detector_dataset_runner import MultiDetectorDatasetRunner
 
-DEFAULT_EXAMPLES_DIR = Path("dataset_2/examples")
-DEFAULT_CHECKPOINT = Path("dataset_2/reports/multi_detector_checkpoint.jsonl")
+DEFAULT_EXAMPLES_DIR = Path("dataset/examples")
+DEFAULT_CHECKPOINT = Path("dataset/reports/multi_detector_checkpoint.jsonl")
 
 
 def _parse_args() -> argparse.Namespace:
@@ -42,7 +42,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--reset", action="store_true", help="descarta o checkpoint e recomeça do zero")
     parser.add_argument("--limit", type=int, default=None, help="processa só os N primeiros arquivos pendentes")
     parser.add_argument("--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING"])
-    parser.add_argument("--log-file", type=Path, default=Path("dataset_2/reports/multi_detector_run.log"))
+    parser.add_argument("--log-file", type=Path, default=Path("dataset/reports/multi_detector_run.log"))
     return parser.parse_args()
 
 

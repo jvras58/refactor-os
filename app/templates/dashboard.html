@@ -74,25 +74,55 @@
 
         const resultContainer = document.getElementById('result-container');
 
-        function formatResponse(data) {
-            if (data.has_smell !== undefined) {
-                // SmellDetection
-                const smellIcon = data.has_smell ? '🚨' : '✅';
-                const smellColor = data.has_smell ? 'text-red-400' : 'text-green-400';
-                return `
-                    <div class="mb-4">
-                        <h3 class="text-lg font-bold ${smellColor}">${smellIcon} Detecção de Smells</h3>
-                        <p><strong>Smell Detectado:</strong> ${data.has_smell ? 'Sim' : 'Não'}</p>
-                        <p><strong>Tipo:</strong> ${data.smell_type}</p>
-                        ${data.line_start ? `<p><strong>Linha Inicial:</strong> ${data.line_start}</p>` : ''}
-                        ${data.line_end ? `<p><strong>Linha Final:</strong> ${data.line_end}</p>` : ''}
-                        ${data.affected_snippet ? `<p><strong>Trecho Afetado:</strong></p><pre class="bg-gray-700 p-2 rounded text-sm overflow-x-auto">${data.affected_snippet}</pre>` : ''}
-                        <p><strong>Justificativa:</strong></p>
-                        <p class="text-gray-300">${data.reasoning}</p>
+        function formatEvidence(evidencias) {
+            if (!evidencias || !evidencias.length) return '';
+            const items = evidencias
+                .map(ev => `<li>${ev.local} (linhas ${ev.linhas.join('-')})</li>`)
+                .join('');
+            return `<ul class="list-disc list-inside text-gray-400 text-sm">${items}</ul>`;
+        }
+
+        function formatScan(scan) {
+            // DetectionScanResult — 8 vereditos (4 smells + 4 patterns)
+            const detected = scan.type_results.filter(r => r.detected);
+            const clean = scan.type_results.filter(r => !r.detected);
+            const headerColor = detected.length ? 'text-red-400' : 'text-green-400';
+            const headerIcon = detected.length ? '🚨' : '✅';
+
+            let html = `
+                <div class="mb-4">
+                    <h3 class="text-lg font-bold ${headerColor}">${headerIcon} Detecção Multi-Label</h3>
+                    <p><strong>Problemas detectados:</strong> ${detected.length ? detected.map(r => r.type_name).join(', ') : 'nenhum'}</p>
+                </div>
+            `;
+            for (const result of detected) {
+                html += `
+                    <div class="mb-3 border-l-2 border-red-400 pl-3">
+                        <p class="font-semibold text-red-300">${result.type_name}</p>
+                        ${formatEvidence(result.evidencias)}
+                        <p class="text-gray-300 text-sm">${result.reasoning}</p>
                     </div>
                 `;
-            } else if (data.detection) {
-                let html = formatResponse(data.detection);
+            }
+            if (clean.length) {
+                html += `<p class="text-gray-400 text-sm mb-4"><strong>Sem evidência:</strong> ${clean.map(r => r.type_name).join(', ')}</p>`;
+            }
+            return html;
+        }
+
+        function formatResponse(data) {
+            if (data.type_results) {
+                // resposta do /detect
+                return formatScan(data);
+            } else if (data.approved !== undefined) {
+                // RefactorResult (resposta do /refactor)
+                let html = data.detection ? formatScan(data.detection) : '';
+                if (data.error) {
+                    html += `<p class="text-red-400 mb-4"><strong>Erro:</strong> ${data.error}</p>`;
+                }
+                if (data.target_pattern) {
+                    html += `<p class="mb-4"><strong>Alvo da refatoração:</strong> ${data.target_smell} → ${data.target_pattern}</p>`;
+                }
                 if (data.proposal) {
                     html += `
                         <div class="mb-4">

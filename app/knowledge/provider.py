@@ -36,7 +36,7 @@ def get_solution_knowledge() -> Knowledge:
     )
     return Knowledge(
         name="refactoring-solutions-kb",
-        description="Exemplos autorais problema→refatoração dos 5 design patterns suportados.",
+        description="Exemplos autorais problema→refatoração dos design patterns suportados.",
         vector_db=vector_db,
         contents_db=get_db(),
     )

@@ -9,15 +9,10 @@ manual smoke test against real examples, not in this automated suite.
 from __future__ import annotations
 
 import pytest
+from conftest import make_scan
 
 from app.core.exceptions import InvalidPythonCodeError
-from app.core.schemas import (
-    DetectionScanResult,
-    HeuristicScan,
-    SmellHeuristicSignal,
-    SmellType,
-    TypeDetectionResult,
-)
+from app.core.schemas import SmellType
 from app.services.detector_service import GroundTruthArrayCompiler, MultiDetectorService
 
 # --------------------------------------------------------------- phase 1
@@ -71,38 +66,14 @@ def test_heuristic_scan_detects_complex_switch(high_complexity_code):
 # --------------------------------------------------------------- phase 4
 
 
-def _fake_scan(detected_names: list[str]) -> DetectionScanResult:
-    heuristic_scan = HeuristicScan(
-        signals={
-            smell: SmellHeuristicSignal(smell_type=smell, possible=False, score=0.0)
-            for smell in SmellType
-        }
-    )
-    all_names = [
-        "Complex/Long Switch Statements", "Long Parameter List",
-        "God Class", "Duplicated Code",
-        "Strategy Pattern", "Builder", "Facade", "Template Method",
-    ]
-    type_results = [
-        TypeDetectionResult(
-            type_name=name,
-            detected=name in detected_names,
-            evidencias=[],
-            reasoning="fake",
-        )
-        for name in all_names
-    ]
-    return DetectionScanResult(heuristic_scan=heuristic_scan, type_results=type_results)
-
-
 def test_ground_truth_array_compiler_returns_only_detected():
-    scan = _fake_scan(["Long Parameter List", "Builder"])
+    scan = make_scan(["Long Parameter List", "Builder"])
     result = GroundTruthArrayCompiler().compile(scan)
     assert result == ["Long Parameter List", "Builder"]
 
 
 def test_ground_truth_array_compiler_empty_when_nothing_detected():
-    scan = _fake_scan([])
+    scan = make_scan([])
     result = GroundTruthArrayCompiler().compile(scan)
     assert result == []
 
@@ -114,5 +85,5 @@ def test_service_compile_delegates_to_injected_compiler():
 
     service = MultiDetectorService.__new__(MultiDetectorService)
     service._compiler = _StubCompiler()
-    scan = _fake_scan([])
+    scan = make_scan([])
     assert service.compile(scan) == "stub"

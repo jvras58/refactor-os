@@ -30,6 +30,11 @@ class Settings(BaseSettings):
     llm_api_key: str = Field(default="")
     llm_model_id: str = Field(default="mistral-medium-latest")
     llm_temperature: float = Field(default=0.2, ge=0.0, le=1.0)
+    llm_throttle_seconds: float = Field(
+        default=20.0,
+        ge=0.0,
+        description="Intervalo mínimo entre chamadas de LLM (anti rate-limit do free tier; use 0 em contas pagas).",
+    )
     ollama_base_url: str = Field(
         default="http://localhost:11434",
         description="Host do servidor Ollama quando llm_provider='ollama'.",

@@ -29,15 +29,6 @@ class SmellSignal:
     line_start: int | None = None
     line_end: int | None = None
 
-    def as_dict(self) -> dict:
-        return {
-            "smell_type": self.smell.value,
-            "score": round(self.score, 3),
-            "evidence": self.evidence,
-            "line_start": self.line_start,
-            "line_end": self.line_end,
-        }
-
 
 def _branch_count(node: ast.AST) -> int:
     """Count elif arms in an if-chain or case arms in a match statement."""

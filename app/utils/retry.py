@@ -8,6 +8,8 @@ import time
 from collections.abc import Awaitable, Callable
 from typing import Any
 
+from app.core.config import get_settings
+
 logger = logging.getLogger(__name__)
 
 RETRYABLE_HINTS: tuple[str, ...] = (
@@ -17,10 +19,6 @@ RETRYABLE_HINTS: tuple[str, ...] = (
     "too many requests",
     "service_tier_capacity",
 )
-
-# Throttle global para evitar estourar rate limit em avaliações locais.
-# Com mistral-medium-latest na conta gratuita, o limite é bem baixo.
-MIN_SECONDS_BETWEEN_LLM_CALLS = 20.0
 
 _LLM_CALL_LOCK = asyncio.Lock()
 _LAST_LLM_CALL_AT = 0.0
@@ -39,13 +37,17 @@ def is_retryable_content(content: Any) -> bool:
 
 
 async def _wait_for_llm_slot(label: str) -> None:
-    """Serialize LLM calls and wait between them to respect provider limits."""
+    """Serialize LLM calls and wait between them to respect provider limits.
+
+    The interval comes from ``LLM_THROTTLE_SECONDS`` (default 20s — free-tier
+    Mistral is very restrictive; set 0 on paid tiers to disable the throttle).
+    """
     global _LAST_LLM_CALL_AT
 
     async with _LLM_CALL_LOCK:
         now = time.monotonic()
         elapsed = now - _LAST_LLM_CALL_AT
-        wait_time = MIN_SECONDS_BETWEEN_LLM_CALLS - elapsed
+        wait_time = get_settings().llm_throttle_seconds - elapsed
 
         if wait_time > 0:
             logger.info(

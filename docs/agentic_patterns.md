@@ -189,7 +189,7 @@ corpus de soluções (sem duplicar a estrutura nem o registry — que foi removi
 - `app/db/session.py` + `db=get_db()` nos 3 agentes (Postgres como `contents_db`).
 - `app/knowledge/provider.py`: `get_solution_knowledge()` (PgVector + HuggingFace
   embeddings, `BAAI/bge-small-en-v1.5`, 384 dims) e `sync_knowledge()`.
-- **Corpus** `app/knowledge/solutions/*.md` — 5 exemplos autorais problema→solução,
+- **Corpus** `app/knowledge/solutions/*.md` — 4 exemplos autorais problema→solução (1 por pattern do escopo),
   **deliberadamente distintos de `dataset/`** para não vazar ground truth na avaliação
   do Critic (que consome `dataset/solutions/`).
 - O Recommender usa agentic RAG nativo: `Agent(knowledge=get_solution_knowledge(),
@@ -201,7 +201,7 @@ corpus de soluções (sem duplicar a estrutura nem o registry — que foi removi
 
 **Pré-requisitos para o RAG funcionar:** Postgres no ar (`docker compose up -d postgres`),
 `HUGGINGFACE_API_KEY` no `.env`, e uma chamada a `/knowledge/sync` para popular a tabela
-(a tabela nasce vazia). Validado: `sync` indexa `{solutions: 5}` e o retrieval retorna o
+(a tabela nasce vazia). Validado: `sync` indexa `{solutions: 4}` e o retrieval retorna o
 doc correto por similaridade.
 
 **Tradeoff assumido:** custo de infra (Postgres + token HF + passo de sync) em troca de um
@@ -281,7 +281,7 @@ justificar uma divergência com equivalente funcional.
 |---------|-------------------|
 | **2 · Routing** | Só há 4 smells + 4 patterns e o Detector já decide cada um individualmente — um router seria duplicação. |
 | **3 · Parallelization** | Fluxo é sequencial por dependência de dados (saída de cada estágio é input do próximo). |
-| **6 · Planning** | Escopo fixo (5 patterns, 1 refactor por arquivo). Não há plano multi-etapa a formular. |
+| **6 · Planning** | Escopo fixo (4 patterns, 1 refactor por arquivo). Não há plano multi-etapa a formular. |
 | **8 · Memory Management** | Sem memória de sessão/conversa entre requests. Há **retrieval** de conhecimento (Skills por nome + RAG semântico via PgVector — ver §16), mas nenhuma memória de longo prazo do usuário ou histórico de turnos. |
 | **9 · Learning and Adaptation** | Fora do escopo acadêmico (sem RL/fine-tuning). |
 | **10 · MCP** | Overhead de infraestrutura sem ganho — todas as tools são internas ao projeto. |

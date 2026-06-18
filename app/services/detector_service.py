@@ -34,10 +34,6 @@ from app.utils.retry import arun_typed
 
 logger = logging.getLogger(__name__)
 
-# Phase 3 — 8 calls total, one per type. Order is just iteration order, not grouping.
-_SMELLS: tuple[SmellType, ...] = tuple(SmellType)
-_PATTERNS: tuple[PatternType, ...] = tuple(PatternType)
-
 
 class ResultCompiler(Protocol):
     """Phase 4 contract — deliberately swappable per consumer."""
@@ -164,10 +160,11 @@ class MultiDetectorService:
         self._validate_python(source_code)
         heuristic_scan = self._run_heuristics(source_code)
 
+        # Phase 3 — 8 calls total, one per type, in enum order (4 smells + 4 patterns).
         type_results: list[TypeDetectionResult] = []
-        for smell in _SMELLS:
+        for smell in SmellType:
             type_results.append(await self._check_smell(source_code, heuristic_scan, smell))
-        for pattern in _PATTERNS:
+        for pattern in PatternType:
             type_results.append(await self._check_pattern(source_code, heuristic_scan, pattern))
 
         return DetectionScanResult(heuristic_scan=heuristic_scan, type_results=type_results)

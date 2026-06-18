@@ -1,0 +1,130 @@
+{
+  "total": 11,
+  "confusion": {
+    "true_positive": 2,
+    "false_positive": 0,
+    "true_negative": 8,
+    "false_negative": 1
+  },
+  "accuracy": 0.9090909090909091,
+  "precision": 1,
+  "recall": 0.6666666666666666,
+  "f1": 0.8,
+  "false_accept_rate": 0,
+  "false_reject_rate": 0.3333333333333333,
+  "per_file": [
+    {
+      "solution_file": "solutions/correct/sol_01_complex_switch.py",
+      "expected_approved": true,
+      "predicted_approved": true,
+      "defect_kind": null,
+      "classification": "TP"
+    },
+    {
+      "solution_file": "solutions/correct/sol_02_long_parameter_list.py",
+      "expected_approved": true,
+      "predicted_approved": true,
+      "defect_kind": null,
+      "classification": "TP"
+    },
+    {
+      "solution_file": "solutions/correct/sol_03_god_class.py",
+      "expected_approved": true,
+      "predicted_approved": false,
+      "defect_kind": null,
+      "classification": "FN (false reject)"
+    },
+    {
+      "solution_file": "solutions/correct/sol_04_tight_coupling.py",
+      "error": true
+    },
+    {
+      "solution_file": "solutions/correct/sol_05_duplicated_code.py",
+      "error": true
+    },
+    {
+      "solution_file": "solutions/correct/sol_06_complex_switch.py",
+      "error": true
+    },
+    {
+      "solution_file": "solutions/correct/sol_07_long_parameter_list.py",
+      "error": true
+    },
+    {
+      "solution_file": "solutions/correct/sol_08_god_class.py",
+      "error": true
+    },
+    {
+      "solution_file": "solutions/correct/sol_09_tight_coupling.py",
+      "error": true
+    },
+    {
+      "solution_file": "solutions/correct/sol_10_duplicated_code.py",
+      "error": true
+    },
+    {
+      "solution_file": "solutions/incorrect/bad_01_complex_switch.py",
+      "error": true
+    },
+    {
+      "solution_file": "solutions/incorrect/bad_02_long_parameter_list.py",
+      "error": true
+    },
+    {
+      "solution_file": "solutions/incorrect/bad_03_god_class.py",
+      "expected_approved": false,
+      "predicted_approved": false,
+      "defect_kind": "signature",
+      "classification": "TN"
+    },
+    {
+      "solution_file": "solutions/incorrect/bad_04_tight_coupling.py",
+      "expected_approved": false,
+      "predicted_approved": false,
+      "defect_kind": "pattern_not_applied",
+      "classification": "TN"
+    },
+    {
+      "solution_file": "solutions/incorrect/bad_05_duplicated_code.py",
+      "expected_approved": false,
+      "predicted_approved": false,
+      "defect_kind": "logic",
+      "classification": "TN"
+    },
+    {
+      "solution_file": "solutions/incorrect/bad_06_complex_switch.py",
+      "expected_approved": false,
+      "predicted_approved": false,
+      "defect_kind": "syntax",
+      "classification": "TN"
+    },
+    {
+      "solution_file": "solutions/incorrect/bad_07_long_parameter_list.py",
+      "expected_approved": false,
+      "predicted_approved": false,
+      "defect_kind": "forbidden_import",
+      "classification": "TN"
+    },
+    {
+      "solution_file": "solutions/incorrect/bad_08_god_class.py",
+      "expected_approved": false,
+      "predicted_approved": false,
+      "defect_kind": "logic",
+      "classification": "TN"
+    },
+    {
+      "solution_file": "solutions/incorrect/bad_09_tight_coupling.py",
+      "expected_approved": false,
+      "predicted_approved": false,
+      "defect_kind": "logic",
+      "classification": "TN"
+    },
+    {
+      "solution_file": "solutions/incorrect/bad_10_duplicated_code.py",
+      "expected_approved": false,
+      "predicted_approved": false,
+      "defect_kind": "pattern_not_applied",
+      "classification": "TN"
+    }
+  ]
+}

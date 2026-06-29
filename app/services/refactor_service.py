@@ -27,6 +27,7 @@ from app.core.schemas import (
     ReflectionReview,
     SmellDetection,
 )
+from app.services.code_repair import repair_refactored_code
 from app.tools.heuristic_engine import format_prior, score_smells
 from app.tools.logic_signals import analyze_logic_preservation, format_logic_prior
 from app.utils.retry import arun_typed
@@ -96,9 +97,12 @@ class RefactorService:
             "Retorne RefactoringProposal. "
             "No campo `refactored_code` use apenas aspas simples ou duplas — nunca aspas triplas."
         )
-        return await arun_typed(
+        proposal = await arun_typed(
             self._recommender.arun, prompt, schema=RefactoringProposal, label="Recommender"
         )
+        # Sanitiza artefato de indentação (def/class após decorador) antes do Critic/avaliação.
+        proposal.refactored_code = repair_refactored_code(proposal.refactored_code)
+        return proposal
 
     async def review(
         self,

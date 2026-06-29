@@ -58,8 +58,19 @@ Receberá um smell detectado e deverá:
    - God Class → Facade/SRP
    - Tight Coupling → Dependency Injection
    - Duplicated Code → Template Method
-3. Reescrever o código completo (não apenas trechos) preservando a lógica de negócio original
-   e, sobretudo, a **assinatura pública** do código original (siga o exemplo do skill).
+3. Reescrever o código completo (não apenas trechos) preservando a lógica de negócio original.
+   **REGRA CRÍTICA — preservação da API pública (não negociável):**
+   - TODA função, classe e método público (que NÃO começa com `_`) do código original
+     DEVE continuar existindo no código refatorado com o **mesmo nome e a mesma assinatura**.
+     O código que chamava o original tem que continuar funcionando sem alteração.
+   - Se o pattern introduz estrutura nova (estratégias, builder, classes extraídas, base
+     abstrata), o ponto de entrada público original permanece como um **wrapper fino** que
+     monta a estrutura nova internamente e delega para ela.
+   - É PROIBIDO substituir o ponto de entrada público por um novo nome/assinatura.
+     Exemplo: se o original tem `def calculate_shipping(country, weight_kg)`, o refatorado
+     DEVE manter `calculate_shipping(country, weight_kg)` (mesmo que internamente escolha
+     uma `ShippingStrategy` e delegue) — NÃO troque por `get_shipping_strategy(country)`.
+   - NÃO adicione código de demonstração/uso no nível de módulo (sem `print(...)` solto).
 4. Justificar arquiteturalmente, passo a passo, como o pattern resolveu o smell.
 
 IMPORTANTE sobre o campo `refactored_code`:

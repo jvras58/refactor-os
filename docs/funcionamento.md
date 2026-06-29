@@ -86,8 +86,8 @@ não escolhe o pattern; ele só carrega o skill correspondente e implementa.
 
 > **Skills + RAG (lado a lado):** o Recommender carrega o playbook do pattern via
 > Skill (`get_skill_instructions`, lookup por nome) **e** recupera exemplos de
-> referência via `KnowledgeTools(get_pattern_knowledge())` sobre PgVector + HuggingFace
-> embeddings (corpus `app/knowledge/patterns/` + `app/knowledge/solutions/`). Detalhes em
+> referência via `KnowledgeTools(get_solution_knowledge())` sobre PgVector + HuggingFace
+> embeddings (corpus `app/knowledge/solutions/`, via `search_knowledge`). Detalhes em
 > [`docs/agentic_patterns.md`](agentic_patterns.md#16--rag-pgvector--corpus-de-soluções).
 > A tabela pgvector precisa ser populada via `POST /api/v1/knowledge/sync`.
 

@@ -58,20 +58,38 @@ não por um LLM-orquestrador. Cada agente tem papel exclusivo, contrato de entra
 tipado (Pydantic) e ferramentas determinísticas.
 
 ```mermaid
+%%{init: {'theme':'base','themeVariables':{'fontSize':'15px','lineColor':'#94a3b8','clusterBkg':'#f8fafc','clusterBorder':'#cbd5e1'}}}%%
 flowchart TD
-    U[Código Python do usuário] --> H[Matriz heurística AST<br/>prior determinístico]
-    H --> D[🕵️ Detector Agent<br/>confirma o smell + explica]
-    D -->|SmellDetection| M{{SMELL_TO_PATTERN<br/>mapeamento fixo}}
-    M --> R[🏗️ Recommender Agent<br/>Skills + RAG de soluções]
-    R -->|RefactoringProposal| L[Prior de preservação de lógica AST<br/>tokens perdidos · determinístico]
-    L --> C[⚖️ Critic Agent<br/>5 critérios objetivos]
-    C -->|reprovado: crítica| R
-    C -->|aprovado| OUT[Resultado validado]
+    U([📥 Código Python do usuário]):::io --> H
+
+    subgraph DET[" 🔎 Detecção "]
+        direction TB
+        H[Matriz heurística · AST<br/>smells prováveis]:::det --> D[🕵️ Detector Agent<br/>confirma o smell + explica]:::llm
+    end
+
+    D -->|SmellDetection| M{{SMELL_TO_PATTERN<br/>mapeamento fixo}}:::det
+
+    subgraph REF[" 🔁 Refatoração + Reflection "]
+        direction TB
+        M --> R[🏗️ Recommender Agent<br/>Skills + RAG de soluções]:::llm
+        R -->|RefactoringProposal| L[Prior de preservação de lógica · AST<br/>tokens perdidos]:::det
+        L --> C[⚖️ Critic Agent<br/>5 critérios objetivos]:::llm
+        C -.->|❌ reprovado: crítica| R
+    end
+
+    C ==>|✅ aprovado| OUT([📤 Resultado validado]):::ok
+
+    classDef io  fill:#e2e8f0,stroke:#475569,color:#0f172a;
+    classDef det fill:#dbeafe,stroke:#2563eb,color:#1e3a8a;
+    classDef llm fill:#ede9fe,stroke:#7c3aed,color:#4c1d95;
+    classDef ok  fill:#dcfce7,stroke:#16a34a,color:#14532d;
 ```
 
+**Legenda:** 🟦 etapa **determinística** (heurística, mapeamento, prior de lógica) · 🟪 **agente LLM** · 🟩 saída validada · seta pontilhada = **loop de reflexão**.
+
 > Dois **priors determinísticos** simétricos alimentam os agentes-juízes: a **matriz
-> heurística** (H) dá ao Detector os smells prováveis; o **prior de preservação de lógica**
-> (L) dá ao Critic os tokens que sumiram entre original e refatorado. Em ambos o LLM confirma.
+> heurística** dá ao Detector os smells prováveis; o **prior de preservação de lógica**
+> dá ao Critic os tokens que sumiram entre original e refatorado. Em ambos, o LLM confirma.
 
 **Três princípios de design:**
 

@@ -48,7 +48,8 @@ services:
         condition: service_healthy
     environment:
       OLLAMA_HOST: http://ollama:11434
-    entrypoint: ["/bin/sh", "-c", "ollama pull ${OLLAMA_MISTRAL_MODEL:-mistral} && ollama pull ${OLLAMA_QWEN_MODEL:-qwen2.5}"]
+      # outros modelos: ollama pull ${OLLAMA_QWEN_MODEL:-qwen2.5} por exemplo
+    entrypoint: ["/bin/sh", "-c", "ollama pull ${OLLAMA_MISTRAL_MODEL:-mistral}"]
     restart: "no"
 
   app:

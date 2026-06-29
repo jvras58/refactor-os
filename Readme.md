@@ -51,7 +51,8 @@ dataset/
 ├── critic_truth.json              # gabarito do Critic (10 corretas + 10 com defeito)
 └── reports/                       # evaluation.{md,json} gerados pela avaliação
 scripts/
-└── run_evaluation.py              # CLI de avaliação (tabelas + relatório md/json)
+├── run_evaluation.py              # CLI de avaliação (tabelas + relatório md/json)
+└── run_refactor_resumable.py      # avaliação do Refator com checkpoint (resumível, p/ modelos locais lentos)
 tests/                             # unit tests determinísticos (tools + métricas + dataset)
 ```
 
@@ -104,9 +105,39 @@ docker compose up --build app          # sobe o app
 ### Modelos locais (Ollama) — alternativa à API Mistral
 ```bash
 docker compose up -d ollama            # servidor de modelos locais
-docker compose up ollama-pull          # baixa Mistral + Qwen (vários GB)
-# então no .env:  LLM_PROVIDER=ollama   LLM_MODEL_ID=mistral  (ou qwen2.5)
+docker compose up ollama-pull          # baixa os modelos (vários GB)
+# baixar um modelo específico sob demanda:
+docker exec refactor-os-ollama ollama pull qwen2.5-coder:7b
 ```
+
+> **GPU NVIDIA:** o serviço `ollama` no `compose.yml` reserva a GPU (`deploy.resources`).
+> Um modelo 7B (~4,7 GB) **não cabe** em GPUs de 4 GB de VRAM → roda em *offload parcial*
+> (parte GPU, parte CPU), mais lento. Modelos que cabem na VRAM (ex.: `qwen2.5-coder:3b`)
+> rodam 100% na GPU e são bem mais rápidos.
+
+**Trocar para um modelo local sem editar o `.env`** — basta exportar as variáveis na
+sessão do terminal (elas têm prioridade sobre o `.env`). No **PowerShell**:
+
+```powershell
+$env:LLM_PROVIDER="ollama"; $env:LLM_MODEL_ID="qwen2.5-coder:7b"
+$env:OLLAMA_BASE_URL="http://localhost:11434"
+$env:DB_URL="postgresql+psycopg://ai:ai@localhost:5532/ai"
+uv run python scripts/run_refactor_resumable.py --json dataset/reports/qwen-coder-refactor.json
+```
+
+No **bash** (prefixo inline na mesma linha):
+
+```bash
+LLM_PROVIDER=ollama LLM_MODEL_ID=qwen2.5-coder:7b \
+OLLAMA_BASE_URL=http://localhost:11434 \
+DB_URL=postgresql+psycopg://ai:ai@localhost:5532/ai \
+uv run python scripts/run_refactor_resumable.py --json dataset/reports/qwen-coder-refactor.json
+```
+
+O mesmo vale para qualquer comando (servidor, `run_evaluation.py`, etc.) — exporte as
+variáveis e rode; nada de permanente no `.env`. Para acelerar a avaliação reduza as
+iterações de reflection com `$env:MAX_REFLECTION_ITERATIONS="1"`.
+
 Permite comparar modelos locais sob a mesma avaliação. Ver [`docs/agentic_patterns.md`](docs/agentic_patterns.md).
 
 ## Endpoints

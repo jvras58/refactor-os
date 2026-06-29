@@ -1,13 +1,13 @@
-"""PgVector-backed knowledge base for the design pattern reference corpus.
+"""PgVector-backed knowledge base of refactoring solution examples.
 
 Uses HuggingfaceCustomEmbedder (BAAI/bge-small-en-v1.5, 384 dims) via the HF
 Inference API gratuita — sem compilação Rust, sem provedor pago.
 Requer HUGGINGFACE_API_KEY no .env (token gratuito em huggingface.co/settings/tokens).
 
-A base reúne dois corpora no mesmo índice pgvector:
-- ``patterns/`` — estrutura canônica (intent, regras) de cada pattern;
-- ``solutions/`` — exemplos autorais problema→refatoração (distintos do dataset
-  de avaliação, para não vazar ground truth).
+Indexa apenas ``app/knowledge/solutions/*.md`` — exemplos autorais problema→
+refatoração, distintos do dataset de avaliação (sem vazar ground truth). A
+estrutura canônica de cada pattern (intent/regras) vive nas Agno Skills
+(``app/skills/``), então não é reindexada aqui para evitar duplicação.
 
 A tabela só fica populada após ``sync_knowledge`` (endpoint ``POST /knowledge/sync``).
 """
@@ -27,8 +27,8 @@ logger = logging.getLogger(__name__)
 
 
 @lru_cache
-def get_pattern_knowledge() -> Knowledge:
-    """Return a Knowledge instance backed by PgVector for the 5 design patterns."""
+def get_solution_knowledge() -> Knowledge:
+    """Return a Knowledge instance backed by PgVector for the solution corpus."""
     settings = get_settings()
     embedder = HuggingfaceCustomEmbedder(
         id=settings.embedding_model_id,
@@ -41,37 +41,31 @@ def get_pattern_knowledge() -> Knowledge:
         embedder=embedder,
     )
     return Knowledge(
-        name="design-patterns-kb",
-        description="Estrutura canônica e exemplos dos 5 design patterns suportados.",
+        name="refactoring-solutions-kb",
+        description="Exemplos autorais problema→refatoração dos 5 design patterns suportados.",
         vector_db=vector_db,
         contents_db=get_db(),
     )
 
 
 async def sync_knowledge() -> dict[str, int]:
-    """Index the patterns and solutions corpora into pgvector (idempotent upsert).
+    """Index the solution corpus into pgvector (idempotent upsert by content name).
 
-    Returns the number of markdown files found per corpus. Re-running upserts by
-    content name, so it is safe to call on boot or via the sync endpoint.
+    Returns the number of markdown files indexed. Safe to re-run.
     """
     settings = get_settings()
-    knowledge = get_pattern_knowledge()
+    knowledge = get_solution_knowledge()
 
-    counts: dict[str, int] = {}
-    for label, directory, metadata in (
-        ("patterns", settings.patterns_dir, {"corpus": "pattern"}),
-        ("solutions", settings.solutions_dir, {"corpus": "solution"}),
-    ):
-        files = sorted(directory.glob("*.md")) if directory.exists() else []
-        counts[label] = len(files)
-        if not files:
-            logger.warning("Knowledge corpus '%s' is empty at %s", label, directory)
-            continue
-        await knowledge.add_content_async(
-            path=str(directory),
-            metadata=metadata,
-            upsert=True,
-        )
-        logger.info("Indexed %d '%s' documents into pgvector", len(files), label)
+    directory = settings.solutions_dir
+    files = sorted(directory.glob("*.md")) if directory.exists() else []
+    if not files:
+        logger.warning("Solution corpus is empty at %s", directory)
+        return {"solutions": 0}
 
-    return counts
+    await knowledge.add_content_async(
+        path=str(directory),
+        metadata={"corpus": "solution"},
+        upsert=True,
+    )
+    logger.info("Indexed %d solution documents into pgvector", len(files))
+    return {"solutions": len(files)}

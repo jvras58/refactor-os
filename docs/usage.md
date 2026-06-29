@@ -62,9 +62,11 @@ Base: `http://127.0.0.1:8000/api/v1`
 | POST   | `/evaluate/critic`  | Avalia o Critic (false accept/false reject). Body vazio → dataset; body com `samples` → código submetido. |
 | POST   | `/evaluate/all`     | Roda as 3 avaliações de uma vez. Body vazio → tudo no dataset; body com `detector`/`refactor`/`critic` → cada seção pode ir ad-hoc independentemente. |
 
-> O antigo `POST /knowledge/sync` **não existe mais** — não há base vetorial
-> para sincronizar. Os skills em `app/skills/` são carregados na inicialização
-> do Recommender (Agno faz isso sozinho).
+> `POST /api/v1/knowledge/sync` indexa os corpora `app/knowledge/patterns/` e
+> `app/knowledge/solutions/` no pgvector (upsert idempotente). A tabela nasce
+> **vazia** — chame esse endpoint uma vez após subir o Postgres (`docker compose
+> up -d postgres`) e definir `HUGGINGFACE_API_KEY`. Os skills em `app/skills/` são
+> carregados à parte, na inicialização do Recommender (Agno faz isso sozinho).
 
 ## 5. Fluxo recomendado de uso
 

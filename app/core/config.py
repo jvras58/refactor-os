@@ -23,9 +23,17 @@ class Settings(BaseSettings):
     api_host: str = Field(default="0.0.0.0")
     api_port: int = Field(default=8000)
 
+    llm_provider: str = Field(
+        default="mistral",
+        description="Backend do LLM: 'mistral' (API online) ou 'ollama' (local via compose).",
+    )
     llm_api_key: str = Field(default="")
     llm_model_id: str = Field(default="mistral-medium-latest")
     llm_temperature: float = Field(default=0.2, ge=0.0, le=1.0)
+    ollama_base_url: str = Field(
+        default="http://localhost:11434",
+        description="Host do servidor Ollama quando llm_provider='ollama'.",
+    )
 
     skills_dir: Path = Field(default=PROJECT_ROOT / "app" / "skills")
 

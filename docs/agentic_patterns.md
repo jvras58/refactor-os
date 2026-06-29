@@ -15,14 +15,8 @@ Estes padrões já estão presentes na arquitetura desde a concepção do projet
 | 4 | **Reflection** | Loop Generator-Critic com `MAX_REFLECTION_ITERATIONS` em `RefactorService.run()` |
 | 5 | **Tool Use (Function Calling)** | `ast_analyzer_tool`, `diff_generator_tool`, `syntax_checker_tool` em `app/tools/` |
 | 7 | **Multi-Agent Collaboration** | Três agentes especializados (`DetectorAgent`, `RecommenderAgent`, `CriticAgent`) com papéis exclusivos |
-| 14 | **Skills + RAG (lado a lado)** | `agno.skills.Skills(loaders=[LocalSkills("app/skills")])` injetado no Recommender (uma `SKILL.md` por pattern via `get_skill_instructions`) **e** `KnowledgeTools(get_pattern_knowledge())` sobre PgVector. Ver §15 e §18 (RAG foi reintroduzido — §16/§17 estão **revertidas**). |
+| 14 | **Skills + RAG (lado a lado)** | `agno.skills.Skills(loaders=[LocalSkills("app/skills")])` injetado no Recommender (uma `SKILL.md` por pattern via `get_skill_instructions`) **e** `KnowledgeTools(get_pattern_knowledge())` sobre PgVector. Ver §15 e §16. |
 | 19 | **Evaluation and Monitoring** | Endpoints `/evaluate/{detector,refactor,critic,all}` — métricas independentes por agente contra `dataset/ground_truth.json` e `dataset/critic_truth.json` (ou amostras enviadas ad-hoc) |
-
-> ⚠️ **Estado atual (branch `feat-dataset-matrix-evoluate`):** as decisões §16 (Skills
-> substituem RAG) e §17 (sem Postgres) foram **revertidas**. O RAG via PgVector +
-> Postgres voltou e ganhou um corpus de soluções, e o Detector passou a usar uma
-> **matriz heurística** determinística como prior. Detalhes em §18 e §19 abaixo —
-> §16/§17 ficam preservadas como registro histórico do que foi removido e por quê.
 
 ---
 
@@ -156,128 +150,6 @@ muito maior e infra adicional, fechamos o ciclo "edita skill → roda
 
 ---
 
-### 16 · Skills substituem RAG (decisão arquitetural) — ⚠️ REVERTIDA (ver §18)
-
-> **Status:** revertida na branch `feat-dataset-matrix-evoluate`. O RAG via PgVector
-> voltou e agora coexiste com as Skills (Skills para o playbook do pattern; RAG para
-> recuperar exemplos do corpus de soluções). A seção abaixo permanece como registro
-> da motivação original da remoção.
-
-**Antes:** o conhecimento canônico de cada pattern vivia em
-`app/knowledge/patterns/*.md` (5 arquivos) indexados em **PgVector** com
-embeddings **HuggingFace** (`BAAI/bge-small-en-v1.5`, 384 dims) via Inference
-API gratuita. O Recommender chamava `KnowledgeTools(knowledge=...)` para fazer
-retrieval semântico.
-
-**Agora:** o conhecimento vive em `app/skills/*/SKILL.md` (mesmo conteúdo,
-formato Agno Skill). O Recommender chama `get_skill_instructions(name=...)` —
-nome resolvido deterministicamente pelo serviço.
-
-**O que mudou na prática:**
-
-| Aspecto | RAG (antes) | Skills (agora) |
-|---|---|---|
-| Recuperação | Top-k semântico via embeddings | Lookup por nome — sem aproximação |
-| Infra | PgVector + HuggingFace Inference API | Filesystem local |
-| Variáveis de ambiente | `HUGGINGFACE_API_KEY`, `EMBEDDING_MODEL_ID`, `KNOWLEDGE_TABLE`, `PATTERNS_DIR` | (nenhuma adicional) |
-| Dependências Python | `huggingface-hub`, `pgvector` | (nenhuma adicional) |
-| Endpoint de boot | `POST /api/v1/knowledge/sync` (indexava no pgvector) | (removido — nada a sincronizar) |
-| Determinismo | Top-k pode retornar variações | 1 skill, 1 arquivo, sempre o mesmo |
-
-**Por que faz sentido para este projeto:**
-1. **Espaço fechado de 5 patterns.** Top-k semântico só ajuda quando há
-   ambiguidade na query — aqui o smell mapeia 1-pra-1 pro pattern, então o
-   "nome do skill" é determinístico. Embeddings adicionam ruído sem upside.
-2. **Conteúdo procedural, não factual.** Skills foram desenhadas exatamente
-   pra "playbook de como aplicar X". RAG é melhor pra "tenho 10k docs e preciso
-   achar os 3 relevantes" — não é o nosso caso.
-3. **Reprodutibilidade acadêmica.** Pgvector + HF Inference API tem chance
-   não-zero de variação entre runs (modelo de embedding, ranking). Skills são
-   100% reproduzíveis — basta `git checkout`.
-4. **Remove dependências.** Saíram `huggingface-hub`, `pgvector` e a
-   exigência de token HF no `.env`. Em seguida, em um segundo passo (commit
-   à parte), também caiu o `PostgresDb` — os agentes são stateless por
-   chamada, então `db=` no `Agent(...)` ficou `None`, e `psycopg` +
-   `sqlalchemy` saíram do `pyproject.toml`. A stack final só precisa de
-   `MISTRAL_API_KEY`.
-
-**O que foi apagado:**
-- `app/knowledge/` (diretório inteiro: `provider.py` + `patterns/*.md`)
-- `app/services/knowledge_service.py`
-- `app/api/controllers/knowledge_controller.py`
-- Rota `POST /api/v1/knowledge/sync` em `app/api/routes.py`
-- Settings `huggingface_api_key`, `embedding_model_id`, `knowledge_table`, `patterns_dir`
-- Tools mortos `design_pattern_reference_tool` e `smell_to_pattern_tool`
-  (eram `@tool` wrappers de `lookup_pattern` / `resolve_pattern_for_smell` —
-  as funções puras ficaram, são usadas pelo dataset integrity test)
-
-**Tradeoff assumido:** perdemos a flexibilidade de retrieval semântico. Se o
-projeto crescer para >20 patterns ou começar a aceitar smells fora da lista
-fechada, o RAG volta a fazer sentido — mas até lá, skills são o caminho mais
-enxuto.
-
-**Arquivos:** `app/skills/`, `app/agents/recommender_agent.py`,
-`app/services/refactor_service.py`, `app/core/config.py`, `pyproject.toml`,
-`.env.example`.
-
----
-
-### 17 · Stateless agents (sem PostgresDb) — ⚠️ REVERTIDA (ver §18)
-
-> **Status:** revertida na branch `feat-dataset-matrix-evoluate`. O `PostgresDb`
-> voltou (`app/db/session.py`, `db=get_db()` nos 3 agentes) porque o RAG via PgVector
-> precisa do Postgres e da `contents_db`. A seção abaixo permanece como registro da
-> motivação original da remoção; o "quando reverter" no fim dela foi efetivamente acionado.
-
-**Decisão:** os 3 agentes do pipeline são construídos **sem `db=`**. O Agno
-aceita `Agent(model=..., parser_model=..., tools=..., output_schema=...)`
-sem o parâmetro de banco, e quando isso acontece o agente fica stateless por
-chamada — `agent.db` é `None` e nenhuma sessão/trace é persistida.
-
-**Como verifiquei que era seguro remover:**
-
-```
-$ grep -rE 'session_id|add_history|memory|read_chat_history|enable_user_memories|enable_session_summaries' app/
-(zero hits)
-```
-
-Nenhum lugar do código exercitava qualquer feature do Agno que dependa do `db`.
-O `PostgresDb` antigo só servia ao RAG via `PgVector` — e o RAG já tinha saído
-junto na §16 (skills substituíram o registry).
-
-**Por que sessões/history/memory não trazem valor no nosso caso:**
-
-| Feature do Agno | Pra que serve | Por que NÃO se aplica aqui |
-|---|---|---|
-| `session_id` + history persistido | Continuar uma conversa entre chamadas separadas (chatbot, assistente interativo). | Cada `POST /refactor` é atômico: recebe código, processa, devolve resultado. Não há continuidade entre requests. |
-| `add_history_to_context=True` | Agente vê as N últimas mensagens do mesmo `session_id`. | A reflection loop **parece** multi-turno, mas é coordenada **em Python** pelo `RefactorService.run()` — quando o Critic reprova, a `critique` vai pro próximo prompt do Recommender como string injetada (via `prior_critique` em `refactor_service.py`). Garante (i) ordem fixa, (ii) número exato de iterações, (iii) cada estágio mensurável independente — as 3 garantias que motivaram não usar `Team` da Agno. |
-| `enable_user_memories` (Mem0-like) | Extrair fatos persistentes sobre o usuário ("prefere TypeScript", "trabalha com Django"). | Não há "usuário" persistente — o cenário acadêmico processa arquivos do `dataset/` ou amostras ad-hoc enviadas via API. `RefactorRequest` nem tem `user_id`. |
-| `enable_session_summaries` | Resumo automático ao final de sessão longa. | Sessão de 1 request não tem o que resumir. |
-| Traces no DB | Observabilidade Agno-native em produção. | Não há produção. Os `logger.exception` / `logger.warning` em `RefactorService` + a saída do `/evaluate/all` (gera `evaluation.json` com per-file) já cobrem debug e medição. |
-
-**Custo de manter um banco que não é usado:**
-- Container Postgres no `compose.yml` + volume `pgdata`.
-- Dependências `psycopg[binary]` e `sqlalchemy` no `pyproject.toml`.
-- `DB_URL` no `.env` (mais um setup pra usuário acertar).
-- `app/db/session.py` + `get_db()` espalhado em 3 factories.
-- Avaliação fica menos reproduzível (rastros de runs anteriores no banco entre `pytest` consecutivos, a menos que alguém lembre de truncar tabelas).
-
-**Quando reverter essa decisão:**
-
-1. **UI interativa** onde usuário discute a refatoração em turnos ("não, prefere essa versão com dataclass" → agente lembra da iteração anterior) — aí `session_id` faz sentido.
-2. **Auth/multi-usuário** com histórico por pessoa — aí `enable_user_memories` faz sentido.
-3. **Observabilidade de produção** com tracing Agno-native em vez de só logs estruturados — aí o `db=` volta pra capturar runs.
-
-Pra "sistema acadêmico stateless que avalia agentes em isolamento", **YAGNI**.
-Se um dia o caso de uso mudar, ressuscita do `git log` (commit `b5e1d09^`).
-
-**Arquivos afetados:** removido `app/db/session.py`, `db=get_db()` dos 3
-agentes, `Settings.db_url`, `DB_URL` do `.env.example`, serviço `postgres` +
-volume `pgdata` do `compose.yml`, deps `psycopg[binary]` e `sqlalchemy` do
-`pyproject.toml`.
-
----
-
 ### 12 · Exception Handling and Recovery
 
 **Problema resolvido:** Qualquer falha de rede, timeout na Groq, ou resposta malformada do LLM
@@ -298,17 +170,16 @@ O campo `error: str | None` foi adicionado a `RefactorResult` para surfaçar a m
 
 ---
 
-### 18 · RAG reintroduzido + corpus de soluções (reversão de §16/§17)
+### 16 · RAG (PgVector) + corpus de soluções
 
-**Decisão:** na branch `feat-dataset-matrix-evoluate` o RAG via PgVector + Postgres
-voltou e ganhou um segundo corpus. Skills e RAG passam a coexistir com papéis distintos:
+**Decisão:** Skills e RAG coexistem com papéis distintos:
 
 | Camada | Papel | Onde |
 |---|---|---|
 | **Skills** | Playbook procedural ("como aplicar o pattern X"), lookup por nome | `app/skills/*/SKILL.md` |
 | **RAG (PgVector)** | Recuperação semântica de exemplos de referência | `app/knowledge/patterns/*.md` + `app/knowledge/solutions/*.md` |
 
-**O que foi (re)adicionado:**
+**Componentes:**
 - `app/db/session.py` + `db=get_db()` nos 3 agentes (Postgres como `contents_db`).
 - `app/knowledge/provider.py`: `get_pattern_knowledge()` (PgVector + HuggingFace
   embeddings, `BAAI/bge-small-en-v1.5`, 384 dims) e `sync_knowledge()`.
@@ -324,9 +195,8 @@ voltou e ganhou um segundo corpus. Skills e RAG passam a coexistir com papéis d
 (a tabela nasce vazia). Validado: `sync` indexa `{patterns: 5, solutions: 5}` e o retrieval
 retorna o doc correto por similaridade.
 
-**Tradeoff assumido:** reintroduz a infra (Postgres + token HF + passo de sync) que §16/§17
-haviam removido em nome da reprodutibilidade. A justificativa é o corpus de soluções
-recuperável semanticamente; o playbook fixo do pattern segue nas Skills.
+**Tradeoff assumido:** custo de infra (Postgres + token HF + passo de sync) em troca de um
+corpus de soluções recuperável semanticamente; o playbook fixo do pattern segue nas Skills.
 
 **Arquivos:** `app/db/session.py`, `app/knowledge/provider.py`,
 `app/knowledge/solutions/*.md`, `app/api/controllers/knowledge_controller.py`,
@@ -334,7 +204,7 @@ recuperável semanticamente; o playbook fixo do pattern segue nas Skills.
 
 ---
 
-### 19 · Matriz heurística como prior determinístico do Detector
+### 17 · Matriz heurística como prior determinístico do Detector
 
 **Problema resolvido:** o Detector julgava o smell a partir de métricas cruas devolvidas
 por `ast_analyzer_tool`, deixando toda a classificação a cargo do LLM (probabilístico).
@@ -377,7 +247,7 @@ candidato de maior score e produz o `reasoning` explicável — o prior não dec
 | **2 · Routing** | Só há 5 smells e o Detector já classifica — um router seria duplicação. |
 | **3 · Parallelization** | Fluxo é sequencial por dependência de dados (saída de cada estágio é input do próximo). |
 | **6 · Planning** | Escopo fixo (5 patterns, 1 refactor por arquivo). Não há plano multi-etapa a formular. |
-| **8 · Memory Management** | Sem memória de sessão/conversa entre requests. Há **retrieval** de conhecimento (Skills por nome + RAG semântico via PgVector — ver §18), mas nenhuma memória de longo prazo do usuário ou histórico de turnos. |
+| **8 · Memory Management** | Sem memória de sessão/conversa entre requests. Há **retrieval** de conhecimento (Skills por nome + RAG semântico via PgVector — ver §16), mas nenhuma memória de longo prazo do usuário ou histórico de turnos. |
 | **9 · Learning and Adaptation** | Fora do escopo acadêmico (sem RL/fine-tuning). |
 | **10 · MCP** | Overhead de infraestrutura sem ganho — todas as tools são internas ao projeto. |
 | **13 · HITL** | Os endpoints `/evaluate/*` contra ground truth substituem supervisão humana para fins acadêmicos. |

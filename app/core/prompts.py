@@ -49,7 +49,7 @@ Receberá um smell detectado e deverá:
    - God Class → `facade-srp`
    - Tight Coupling → `dependency-injection`
    - Duplicated Code → `template-method`
-1b. Chamar `search_knowledge` com uma descrição do smell/código para recuperar um
+1b. Chamar `search_knowledge_base` com uma descrição do smell/código para recuperar um
    exemplo problema→refatoração análogo do corpus de soluções. Use-o como referência
    adicional ao implementar (não copie cego — adapte ao código recebido).
 2. Aplicar EXATAMENTE o mapeamento permitido smell → pattern declarado em `applied_pattern`:

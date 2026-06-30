@@ -53,8 +53,7 @@
   {
     "file": "code_smell/long-parameter-list/example_1.py",
     "smells": [
-      "Long Parameter List",
-      "Builder"
+      "Long Parameter List"
     ],
     "evidencias": [
       {
@@ -70,8 +69,7 @@
   {
     "file": "code_smell/long-parameter-list/example_2.py",
     "smells": [
-      "Long Parameter List",
-      "Builder"
+      "Long Parameter List"
     ],
     "evidencias": [
       {
@@ -104,8 +102,7 @@
   {
     "file": "code_smell/god-class/example_1.py",
     "smells": [
-      "God Class",
-      "Facade"
+      "God Class"
     ],
     "evidencias": [
       {
@@ -493,7 +490,6 @@
       "God Class",
       "Facade",
       "Long Parameter List",
-      "Builder",
       "Complex/Long Switch Statements",
       "Strategy Pattern"
     ],
@@ -530,7 +526,6 @@
       "Duplicated Code",
       "Template Method",
       "Long Parameter List",
-      "Builder",
       "Complex/Long Switch Statements",
       "Strategy Pattern"
     ],

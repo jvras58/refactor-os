@@ -1,8 +1,8 @@
 """Pydantic contracts for the new multi-smell/multi-pattern detector pipeline.
 
 Phase 1 (validation) raises ``InvalidPythonCodeError`` and produces no schema.
-Phase 2 (heuristic) -> ``HeuristicScan``. Phase 3 (paired LLM checks) ->
-``PairedDetectionResponse`` per call, aggregated into ``DetectionScanResult``.
+Phase 2 (heuristic) -> ``HeuristicScan``. Phase 3 (one LLM call per smell/pattern
+type) -> ``TypeDetectionResult`` per call, aggregated into ``DetectionScanResult``.
 Phase 4 (compilation) is implemented by ``ResultCompiler`` strategies in
 ``app/services/multi_detector_service.py`` and is not a fixed schema by design.
 """
@@ -39,19 +39,13 @@ class TypeEvidence(BaseModel):
 
 
 class TypeDetectionResult(BaseModel):
-    """LLM verdict for ONE smell or pattern type (phase 3, one half of a paired call)."""
+    """LLM verdict for ONE smell or pattern type — also the output schema of a
+    single phase-3 LLM call (one type checked per call, 8 calls total)."""
 
     type_name: str = Field(description="Nome exato do smell ou pattern avaliado nesta chamada.")
     detected: bool
     evidencias: list[TypeEvidence] = Field(default_factory=list)
     reasoning: str = Field(description="Justificativa técnica da decisão.")
-
-
-class PairedDetectionResponse(BaseModel):
-    """Output schema of a single phase-3 LLM call — always exactly 2 independent verdicts."""
-
-    result_a: TypeDetectionResult
-    result_b: TypeDetectionResult
 
 
 class DetectionScanResult(BaseModel):

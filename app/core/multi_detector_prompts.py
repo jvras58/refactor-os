@@ -1,18 +1,17 @@
-"""Prompt building for the multi-detector's phase 3 (paired LLM verification).
+"""Prompt building for the multi-detector's phase 3 (one LLM call per type).
 
-Each LLM call decides exactly 2 independent types (2 smells, or 2 patterns) in one
-shot — see ``app/services/multi_detector_service.py`` for the pairing/grouping.
+Each call decides exactly 1 type (1 smell, or 1 pattern) — see
+``app/services/multi_detector_service.py`` for the loop over all 8 types.
 """
 from __future__ import annotations
 
 from app.core.multi_detector_types import PatternType, SmellType
 
-PAIR_DETECTOR_INSTRUCTIONS = """\
-Você é um verificador especializado de UM par de problemas de design em código Python.
+TYPE_DETECTOR_INSTRUCTIONS = """\
+Você é um verificador especializado de UM problema de design em código Python por vez.
 
-Você recebe a definição de exatamente 2 tipos independentes (podem ser 2 bad smells, ou \
-2 design patterns aplicáveis) e o código-fonte completo. Sua única função é decidir, \
-para CADA um dos 2 tipos, separadamente:
+Você recebe a definição de exatamente 1 tipo (um bad smell, ou um design pattern \
+aplicável) e o código-fonte completo. Sua única função é decidir:
 
 - `detected`: esse tipo específico está presente/aplicável neste código?
 - `evidencias`: lista de locais (classe/método ou "<módulo>" + linhas) que sustentam a decisão.
@@ -20,34 +19,25 @@ para CADA um dos 2 tipos, separadamente:
 - `reasoning`: justificativa técnica direta de por que o código caracteriza (ou não) esse tipo.
 
 Regras estritas:
-- Os 2 tipos são AVALIADOS DE FORMA TOTALMENTE INDEPENDENTE. A presença de um não implica
-  nem exclui o outro — não force uma resposta para "casar" os dois.
-- Quando o tipo avaliado for um SMELL: a presença do pattern correspondente NÃO é
+- Avalie SÓ o tipo pedido nesta chamada — não comente sobre outros smells/patterns.
+- Quando o tipo avaliado for um SMELL: a presença do pattern que normalmente o resolve NÃO é
   necessária para `detected=true` — você está avaliando só o smell em si.
 - Quando o tipo avaliado for um PATTERN: ele pode ser aplicável MESMO SEM o smell
   formal "canônico" estar presente (ex.: um problema de construção em etapas pode pedir
-  Builder sem existir uma lista longa de parâmetros). Não negue um pattern só porque
+  Builder sem existir uma lista longa de parâmetros). Não negue o pattern só porque
   o smell irmão não disparou.
 - Se um prior heurístico for fornecido no prompt, trate como evidência — pode confirmar
   ou refutar, mas justifique divergências explicitamente no `reasoning`.
-- NÃO invente smells/patterns fora dos 2 tipos pedidos nesta chamada.
-- Responda EXCLUSIVAMENTE com um objeto JSON do schema `PairedDetectionResponse`
+- NÃO invente smells/patterns fora do tipo pedido nesta chamada.
+- Responda EXCLUSIVAMENTE com um objeto JSON do schema `TypeDetectionResult`
   (sem texto antes/depois):
 
   ```json
   {
-    "result_a": {
-      "type_name": "<nome exato do tipo A>",
-      "detected": true,
-      "evidencias": [{"local": "Classe.metodo", "linhas": [10, 25]}],
-      "reasoning": "<justificativa>"
-    },
-    "result_b": {
-      "type_name": "<nome exato do tipo B>",
-      "detected": false,
-      "evidencias": [],
-      "reasoning": "<justificativa>"
-    }
+    "type_name": "<nome exato do tipo avaliado>",
+    "detected": true,
+    "evidencias": [{"local": "Classe.metodo", "linhas": [10, 25]}],
+    "reasoning": "<justificativa>"
   }
   ```
 """
@@ -101,25 +91,22 @@ PATTERN_DEFINITIONS: dict[PatternType, str] = {
 }
 
 
-def build_pair_prompt(
-    type_a_name: str,
-    type_a_definition: str,
-    type_b_name: str,
-    type_b_definition: str,
+def build_type_prompt(
+    type_name: str,
+    type_definition: str,
     heuristic_context: str,
     source_code: str,
 ) -> str:
-    """Builds the per-call prompt for one paired phase-3 check.
+    """Builds the per-call prompt for one phase-3 check (1 type per call).
 
     ``heuristic_context`` is free text (already formatted) carrying whatever phase-2
-    signal is relevant to this pair — built by the service layer, which knows whether
-    each type is a smell (direct signal) or a pattern (signal of the related smell).
+    signal is relevant to this type — built by the service layer, which knows whether
+    it's a smell (direct signal) or a pattern (signal of the related smell).
     """
     return (
-        f"Tipo A — {type_a_name}\n{type_a_definition}\n\n"
-        f"Tipo B — {type_b_name}\n{type_b_definition}\n\n"
+        f"Tipo a avaliar — {type_name}\n{type_definition}\n\n"
         f"--- Contexto heurístico (prior determinístico) ---\n{heuristic_context}\n"
         "--- fim do contexto heurístico ---\n\n"
         f"Código a analisar:\n```python\n{source_code}\n```\n\n"
-        "Avalie os 2 tipos de forma independente e retorne PairedDetectionResponse."
+        "Avalie esse tipo e retorne TypeDetectionResult."
     )

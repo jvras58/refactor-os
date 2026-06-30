@@ -1,0 +1,598 @@
+[
+  {
+    "file": "code_smell/complex-switch-statements/example_1.py",
+    "smells": [
+      "Complex/Long Switch Statements",
+      "Strategy Pattern"
+    ],
+    "evidencias": [
+      {
+        "local": "calcular_frete",
+        "linhas": [
+          4,
+          16
+        ],
+        "relacionado_a": "Complex/Long Switch Statements"
+      }
+    ]
+  },
+  {
+    "file": "code_smell/complex-switch-statements/example_2.py",
+    "smells": [
+      "Complex/Long Switch Statements",
+      "Strategy Pattern"
+    ],
+    "evidencias": [
+      {
+        "local": "ProcessadorPagamento.processar",
+        "linhas": [
+          5,
+          23
+        ],
+        "relacionado_a": "Complex/Long Switch Statements"
+      }
+    ]
+  },
+  {
+    "file": "code_smell/complex-switch-statements/example_3.py",
+    "smells": [
+      "Complex/Long Switch Statements",
+      "Strategy Pattern"
+    ],
+    "evidencias": [
+      {
+        "local": "enviar_notificacao",
+        "linhas": [
+          4,
+          22
+        ],
+        "relacionado_a": "Complex/Long Switch Statements"
+      }
+    ]
+  },
+  {
+    "file": "code_smell/long-parameter-list/example_1.py",
+    "smells": [
+      "Long Parameter List",
+      "Builder"
+    ],
+    "evidencias": [
+      {
+        "local": "criar_pedido",
+        "linhas": [
+          4,
+          14
+        ],
+        "relacionado_a": "Long Parameter List"
+      }
+    ]
+  },
+  {
+    "file": "code_smell/long-parameter-list/example_2.py",
+    "smells": [
+      "Long Parameter List",
+      "Builder"
+    ],
+    "evidencias": [
+      {
+        "local": "CadastroService.criar_usuario",
+        "linhas": [
+          5,
+          17
+        ],
+        "relacionado_a": "Long Parameter List"
+      }
+    ]
+  },
+  {
+    "file": "code_smell/long-parameter-list/example_3.py",
+    "smells": [
+      "Long Parameter List",
+      "Builder"
+    ],
+    "evidencias": [
+      {
+        "local": "gerar_relatorio",
+        "linhas": [
+          4,
+          17
+        ],
+        "relacionado_a": "Long Parameter List"
+      }
+    ]
+  },
+  {
+    "file": "code_smell/god-class/example_1.py",
+    "smells": [
+      "God Class",
+      "Facade/SRP"
+    ],
+    "evidencias": [
+      {
+        "local": "GerenciadorPedido",
+        "linhas": [
+          4,
+          28
+        ],
+        "relacionado_a": "God Class"
+      }
+    ]
+  },
+  {
+    "file": "code_smell/god-class/example_2.py",
+    "smells": [
+      "God Class",
+      "Facade/SRP"
+    ],
+    "evidencias": [
+      {
+        "local": "SistemaUsuario",
+        "linhas": [
+          4,
+          28
+        ],
+        "relacionado_a": "God Class"
+      }
+    ]
+  },
+  {
+    "file": "code_smell/god-class/example_3.py",
+    "smells": [
+      "God Class",
+      "Facade/SRP"
+    ],
+    "evidencias": [
+      {
+        "local": "AppController",
+        "linhas": [
+          4,
+          22
+        ],
+        "relacionado_a": "God Class"
+      }
+    ]
+  },
+  {
+    "file": "code_smell/duplicated-code/example_1.py",
+    "smells": [
+      "Duplicated Code",
+      "Template Method"
+    ],
+    "evidencias": [
+      {
+        "local": "RelatorioVendas.gerar",
+        "linhas": [
+          5,
+          11
+        ],
+        "relacionado_a": "Duplicated Code"
+      },
+      {
+        "local": "RelatorioEstoque.gerar",
+        "linhas": [
+          17,
+          23
+        ],
+        "relacionado_a": "Duplicated Code"
+      }
+    ]
+  },
+  {
+    "file": "code_smell/duplicated-code/example_2.py",
+    "smells": [
+      "Duplicated Code",
+      "Template Method"
+    ],
+    "evidencias": [
+      {
+        "local": "ValidadorCadastro.validar_cliente",
+        "linhas": [
+          5,
+          16
+        ],
+        "relacionado_a": "Duplicated Code"
+      },
+      {
+        "local": "ValidadorCadastro.validar_fornecedor",
+        "linhas": [
+          18,
+          29
+        ],
+        "relacionado_a": "Duplicated Code"
+      }
+    ]
+  },
+  {
+    "file": "code_smell/duplicated-code/example_3.py",
+    "smells": [
+      "Duplicated Code",
+      "Template Method"
+    ],
+    "evidencias": [
+      {
+        "local": "ImportadorCSV.importar",
+        "linhas": [
+          5,
+          11
+        ],
+        "relacionado_a": "Duplicated Code"
+      },
+      {
+        "local": "ImportadorJSON.importar",
+        "linhas": [
+          18,
+          24
+        ],
+        "relacionado_a": "Duplicated Code"
+      }
+    ]
+  },
+  {
+    "file": "patterns/strategy-pattern/example_1.py",
+    "smells": [
+      "Complex/Long Switch Statements",
+      "Strategy Pattern"
+    ],
+    "evidencias": [
+      {
+        "local": "calcular_desconto",
+        "linhas": [
+          4,
+          17
+        ],
+        "relacionado_a": "Complex/Long Switch Statements"
+      }
+    ]
+  },
+  {
+    "file": "patterns/strategy-pattern/example_2.py",
+    "smells": [
+      "Complex/Long Switch Statements",
+      "Strategy Pattern"
+    ],
+    "evidencias": [
+      {
+        "local": "CatalogoService.ordenar",
+        "linhas": [
+          5,
+          15
+        ],
+        "relacionado_a": "Complex/Long Switch Statements"
+      }
+    ]
+  },
+  {
+    "file": "patterns/strategy-pattern/example_3.py",
+    "smells": [
+      "Complex/Long Switch Statements",
+      "Strategy Pattern"
+    ],
+    "evidencias": [
+      {
+        "local": "validar_senha",
+        "linhas": [
+          4,
+          17
+        ],
+        "relacionado_a": "Complex/Long Switch Statements"
+      }
+    ]
+  },
+  {
+    "file": "patterns/builder/example_1.py",
+    "smells": [
+      "Long Parameter List",
+      "Builder"
+    ],
+    "evidencias": [
+      {
+        "local": "criar_conexao_banco",
+        "linhas": [
+          4,
+          11
+        ],
+        "relacionado_a": "Long Parameter List"
+      }
+    ]
+  },
+  {
+    "file": "patterns/builder/example_2.py",
+    "smells": [
+      "Long Parameter List",
+      "Builder"
+    ],
+    "evidencias": [
+      {
+        "local": "Pizza.__init__",
+        "linhas": [
+          5,
+          13
+        ],
+        "relacionado_a": "Long Parameter List"
+      }
+    ]
+  },
+  {
+    "file": "patterns/builder/example_3.py",
+    "smells": [
+      "Long Parameter List",
+      "Builder"
+    ],
+    "evidencias": [
+      {
+        "local": "ClienteHttp.montar_requisicao",
+        "linhas": [
+          5,
+          11
+        ],
+        "relacionado_a": "Long Parameter List"
+      }
+    ]
+  },
+  {
+    "file": "patterns/facade-srp/example_1.py",
+    "smells": [
+      "Facade/SRP"
+    ],
+    "evidencias": [
+      {
+        "local": "LojaController.receber_pedido_do_carrinho",
+        "linhas": [
+          30,
+          51
+        ],
+        "relacionado_a": "Facade/SRP"
+      }
+    ]
+  },
+  {
+    "file": "patterns/facade-srp/example_2.py",
+    "smells": [
+      "God Class",
+      "Facade/SRP"
+    ],
+    "evidencias": [
+      {
+        "local": "GerenciadorRelatorio",
+        "linhas": [
+          4,
+          20
+        ],
+        "relacionado_a": "God Class"
+      }
+    ]
+  },
+  {
+    "file": "patterns/facade-srp/example_3.py",
+    "smells": [
+      "Facade/SRP"
+    ],
+    "evidencias": [
+      {
+        "local": "cobrar_cliente_no_checkout",
+        "linhas": [
+          4,
+          18
+        ],
+        "relacionado_a": "Facade/SRP"
+      }
+    ]
+  },
+  {
+    "file": "patterns/template-method/example_1.py",
+    "smells": [
+      "Duplicated Code",
+      "Template Method"
+    ],
+    "evidencias": [
+      {
+        "local": "ProcessadorPedidoOnline.processar",
+        "linhas": [
+          5,
+          11
+        ],
+        "relacionado_a": "Duplicated Code"
+      },
+      {
+        "local": "ProcessadorPedidoLoja.processar",
+        "linhas": [
+          19,
+          25
+        ],
+        "relacionado_a": "Duplicated Code"
+      }
+    ]
+  },
+  {
+    "file": "patterns/template-method/example_2.py",
+    "smells": [
+      "Duplicated Code",
+      "Template Method"
+    ],
+    "evidencias": [
+      {
+        "local": "TesteIntegracaoApi.executar",
+        "linhas": [
+          5,
+          13
+        ],
+        "relacionado_a": "Duplicated Code"
+      },
+      {
+        "local": "TesteIntegracaoBanco.executar",
+        "linhas": [
+          23,
+          31
+        ],
+        "relacionado_a": "Duplicated Code"
+      }
+    ]
+  },
+  {
+    "file": "patterns/template-method/example_3.py",
+    "smells": [
+      "Duplicated Code",
+      "Template Method"
+    ],
+    "evidencias": [
+      {
+        "local": "ImportadorLoteCSV.importar",
+        "linhas": [
+          5,
+          15
+        ],
+        "relacionado_a": "Duplicated Code"
+      },
+      {
+        "local": "ImportadorLoteXML.importar",
+        "linhas": [
+          23,
+          33
+        ],
+        "relacionado_a": "Duplicated Code"
+      }
+    ]
+  },
+  {
+    "file": "mixed/example_1.py",
+    "smells": [
+      "God Class",
+      "Facade/SRP",
+      "Long Parameter List",
+      "Builder",
+      "Complex/Long Switch Statements",
+      "Strategy Pattern"
+    ],
+    "evidencias": [
+      {
+        "local": "GestorPedidos",
+        "linhas": [
+          4,
+          59
+        ],
+        "relacionado_a": "God Class"
+      },
+      {
+        "local": "GestorPedidos.criar_pedido",
+        "linhas": [
+          8,
+          29
+        ],
+        "relacionado_a": "Long Parameter List"
+      },
+      {
+        "local": "GestorPedidos.processar_pagamento",
+        "linhas": [
+          31,
+          46
+        ],
+        "relacionado_a": "Complex/Long Switch Statements"
+      }
+    ]
+  },
+  {
+    "file": "mixed/example_2.py",
+    "smells": [
+      "Duplicated Code",
+      "Template Method",
+      "Long Parameter List",
+      "Builder",
+      "Complex/Long Switch Statements",
+      "Strategy Pattern"
+    ],
+    "evidencias": [
+      {
+        "local": "ImportadorCatalogoCSV.importar",
+        "linhas": [
+          5,
+          11
+        ],
+        "relacionado_a": "Duplicated Code"
+      },
+      {
+        "local": "ImportadorCatalogoJSON.importar",
+        "linhas": [
+          18,
+          24
+        ],
+        "relacionado_a": "Duplicated Code"
+      },
+      {
+        "local": "SincronizadorCatalogo.configurar_destino",
+        "linhas": [
+          31,
+          38
+        ],
+        "relacionado_a": "Long Parameter List"
+      },
+      {
+        "local": "SincronizadorCatalogo.enviar",
+        "linhas": [
+          40,
+          50
+        ],
+        "relacionado_a": "Complex/Long Switch Statements"
+      }
+    ]
+  },
+  {
+    "file": "mixed/example_3.py",
+    "smells": [
+      "God Class",
+      "Facade/SRP",
+      "Complex/Long Switch Statements",
+      "Strategy Pattern",
+      "Duplicated Code",
+      "Template Method"
+    ],
+    "evidencias": [
+      {
+        "local": "CentralNotificacoes",
+        "linhas": [
+          4,
+          56
+        ],
+        "relacionado_a": "God Class"
+      },
+      {
+        "local": "CentralNotificacoes.notificar",
+        "linhas": [
+          8,
+          25
+        ],
+        "relacionado_a": "Complex/Long Switch Statements"
+      },
+      {
+        "local": "CentralNotificacoes.gerar_relatorio_envios",
+        "linhas": [
+          33,
+          39
+        ],
+        "relacionado_a": "Duplicated Code"
+      },
+      {
+        "local": "CentralNotificacoes.gerar_relatorio_falhas",
+        "linhas": [
+          41,
+          47
+        ],
+        "relacionado_a": "Duplicated Code"
+      }
+    ]
+  },
+  {
+    "file": "complex-clean/example_1.py",
+    "smells": [],
+    "evidencias": []
+  },
+  {
+    "file": "complex-clean/example_2.py",
+    "smells": [],
+    "evidencias": []
+  },
+  {
+    "file": "complex-clean/example_3.py",
+    "smells": [],
+    "evidencias": []
+  }
+]

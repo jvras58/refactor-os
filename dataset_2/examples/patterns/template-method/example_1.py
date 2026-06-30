@@ -27,3 +27,14 @@ class ProcessadorPedidoLoja:
     def _reservar_estoque(self, pedido): ...
     def _cobrar_dinheiro_ou_debito(self, pedido): ...
     def _confirmar(self, pedido): ...
+
+
+class PedidoDispatcher:
+    def __init__(self):
+        self._online = ProcessadorPedidoOnline()
+        self._loja = ProcessadorPedidoLoja()
+
+    def despachar(self, pedido: dict) -> dict:
+        if pedido.get("canal") == "online":
+            return self._online.processar(pedido)
+        return self._loja.processar(pedido)

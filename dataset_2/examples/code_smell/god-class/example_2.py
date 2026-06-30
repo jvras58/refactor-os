@@ -26,3 +26,17 @@ class SistemaUsuario:
     # logging / auditoria
     def registrar_acesso(self, usuario_id, ip): ...
     def exportar_log_auditoria(self): ...
+
+
+class AppBootstrap:
+    def __init__(self):
+        self._sistema_usuario = SistemaUsuario()
+
+    def iniciar_sessao(self, email, senha, ip):
+        sessao = self._sistema_usuario.login(email, senha)
+        self._sistema_usuario.registrar_acesso(email, ip)
+        return sessao
+
+    def cadastrar_assinante(self, usuario_id, valor):
+        self._sistema_usuario.cobrar_assinatura(usuario_id, valor)
+        self._sistema_usuario.enviar_email_boas_vindas(usuario_id)

@@ -1,24 +1,32 @@
 """Cadastro de usuario com dados pessoais, endereco e credenciais."""
 
 
-def criar_usuario(nome, email, senha, idade, cidade, estado, pais,
-                   telefone=None, cpf=None):
-    if idade < 18:
-        raise ValueError("usuario deve ser maior de idade")
-    return {
-        "nome": nome,
-        "email": email,
-        "senha_hash": _hash(senha),
-        "idade": idade,
-        "endereco": f"{cidade}/{estado} - {pais}",
-        "telefone": telefone,
-        "cpf": cpf,
-    }
+class CadastroService:
+    def criar_usuario(self, nome, email, senha, idade, cidade, estado, pais,
+                       telefone=None, cpf=None):
+        if idade < 18:
+            raise ValueError("usuario deve ser maior de idade")
+        return {
+            "nome": nome,
+            "email": email,
+            "senha_hash": self._hash(senha),
+            "idade": idade,
+            "endereco": f"{cidade}/{estado} - {pais}",
+            "telefone": telefone,
+            "cpf": cpf,
+        }
+
+    def _hash(self, valor: str) -> str:
+        return f"hash({valor})"
 
 
-def _hash(valor: str) -> str:
-    return f"hash({valor})"
+class OnboardingController:
+    def __init__(self):
+        self._cadastro = CadastroService()
 
-
-# chamada — 9 posicoes, nenhuma indicacao do que cada uma significa
-criar_usuario("Ana Silva", "ana@example.com", "senha123", 30, "Recife", "PE", "BR", "81999990000", "000.000.000-00")
+    def receber_formulario(self, dados: dict) -> dict:
+        return self._cadastro.criar_usuario(
+            dados["nome"], dados["email"], dados["senha"], dados["idade"],
+            dados["cidade"], dados["estado"], dados["pais"],
+            dados.get("telefone"), dados.get("cpf"),
+        )

@@ -14,5 +14,4 @@ def criar_pedido(cliente_id, produto_id, quantidade, preco_unitario,
     }
 
 
-# chamada — facil errar a ordem de cidade/estado, ambos str
 criar_pedido(42, 7, 2, 99.90, 10.0, 15.0, "Rua A", "SP", "SP", "01000-000")

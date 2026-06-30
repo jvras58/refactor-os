@@ -1,40 +1,62 @@
-"""Processamento de pedidos por canal de venda (online e loja fisica)."""
+"""Processamento de atividades avaliativas em uma plataforma educacional."""
 
 
-class ProcessadorPedidoOnline:
-    def processar(self, pedido):
-        if not pedido.get("endereco_entrega"):
-            raise ValueError("pedido online exige endereco de entrega")
-        self._reservar_estoque(pedido)
-        self._cobrar_cartao(pedido)
-        self._confirmar(pedido)
-        return {"status": "confirmado", "canal": "online"}
+class ProcessadorQuestionarioObjetivo:
+    def processar(self, atividade, entrega_aluno):
+        if not atividade.disponivel:
+            raise ValueError("atividade indisponivel")
+        if entrega_aluno.data_envio > atividade.prazo_final:
+            raise ValueError("entrega fora do prazo")
 
-    def _reservar_estoque(self, pedido): ...
-    def _cobrar_cartao(self, pedido): ...
-    def _confirmar(self, pedido): ...
+        respostas = entrega_aluno.respostas
+        acertos = sum(1 for r, gabarito in zip(respostas, atividade.gabarito) if r == gabarito)
+        nota = (acertos / len(atividade.gabarito)) * 10
 
+        resultado = {"aluno_id": entrega_aluno.aluno_id, "atividade_id": atividade.id, "nota": nota}
+        salvar_resultado(resultado)
 
-class ProcessadorPedidoLoja:
-    def processar(self, pedido):
-        if not pedido.get("caixa_id"):
-            raise ValueError("pedido de loja exige identificacao do caixa")
-        self._reservar_estoque(pedido)
-        self._cobrar_dinheiro_ou_debito(pedido)
-        self._confirmar(pedido)
-        return {"status": "confirmado", "canal": "loja"}
-
-    def _reservar_estoque(self, pedido): ...
-    def _cobrar_dinheiro_ou_debito(self, pedido): ...
-    def _confirmar(self, pedido): ...
+        feedback = f"Voce acertou {acertos} de {len(atividade.gabarito)} questoes."
+        notificar_aluno(entrega_aluno.aluno_id, feedback)
+        return resultado
 
 
-class PedidoDispatcher:
-    def __init__(self):
-        self._online = ProcessadorPedidoOnline()
-        self._loja = ProcessadorPedidoLoja()
+class ProcessadorRedacao:
+    def processar(self, atividade, entrega_aluno):
+        if not atividade.disponivel:
+            raise ValueError("atividade indisponivel")
+        if entrega_aluno.data_envio > atividade.prazo_final:
+            raise ValueError("entrega fora do prazo")
 
-    def despachar(self, pedido: dict) -> dict:
-        if pedido.get("canal") == "online":
-            return self._online.processar(pedido)
-        return self._loja.processar(pedido)
+        avaliacao_professor = buscar_avaliacao_manual(entrega_aluno.id)
+        nota = avaliacao_professor.nota_final
+
+        resultado = {"aluno_id": entrega_aluno.aluno_id, "atividade_id": atividade.id, "nota": nota}
+        salvar_resultado(resultado)
+
+        feedback = avaliacao_professor.comentarios
+        notificar_aluno(entrega_aluno.aluno_id, feedback)
+        return resultado
+
+
+class ProcessadorExercicioProgramacao:
+    def processar(self, atividade, entrega_aluno):
+        if not atividade.disponivel:
+            raise ValueError("atividade indisponivel")
+        if entrega_aluno.data_envio > atividade.prazo_final:
+            raise ValueError("entrega fora do prazo")
+
+        resultados_testes = executar_testes_automatizados(entrega_aluno.codigo, atividade.casos_teste)
+        nota = (sum(1 for r in resultados_testes if r.passou) / len(resultados_testes)) * 10
+
+        resultado = {"aluno_id": entrega_aluno.aluno_id, "atividade_id": atividade.id, "nota": nota}
+        salvar_resultado(resultado)
+
+        feedback = "\n".join(f"Teste {r.nome}: {'OK' if r.passou else 'FALHOU'}" for r in resultados_testes)
+        notificar_aluno(entrega_aluno.aluno_id, feedback)
+        return resultado
+
+
+def salvar_resultado(resultado): ...
+def notificar_aluno(aluno_id, feedback): ...
+def buscar_avaliacao_manual(entrega_id): ...
+def executar_testes_automatizados(codigo, casos_teste): ...

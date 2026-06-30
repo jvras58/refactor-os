@@ -1,25 +1,23 @@
-"""Montagem de requisicao HTTP configuravel."""
+"""Geracao de cartao de contato em formato vCard ou em payload para QR Code."""
 
 
-class ClienteHttp:
-    def montar_requisicao(self, url, metodo, headers, body, timeout,
-                           retries, auth_token, verify_ssl, proxy, allow_redirects):
-        return {
-            "url": url, "metodo": metodo, "headers": {**headers, "Authorization": auth_token},
-            "body": body, "timeout": timeout, "retries": retries,
-            "verify_ssl": verify_ssl, "proxy": proxy, "allow_redirects": allow_redirects,
-        }
+class CartaoContato:
+    def montar_vcard(self, contato: dict) -> str:
+        linhas = [
+            "BEGIN:VCARD", "VERSION:3.0",
+            f"FN:{contato['nome']}", f"TEL:{contato['telefone']}", f"EMAIL:{contato['email']}",
+        ]
+        if contato.get("empresa"):
+            linhas.append(f"ORG:{contato['empresa']}")
+        if contato.get("cargo"):
+            linhas.append(f"TITLE:{contato['cargo']}")
+        linhas.append("END:VCARD")
+        return "\n".join(linhas)
 
-    def enviar(self, requisicao: dict) -> dict: ...
-
-
-class IntegradorExterno:
-    def __init__(self):
-        self._http = ClienteHttp()
-
-    def sincronizar_pedido(self, pedido: dict, token: str) -> dict:
-        requisicao = self._http.montar_requisicao(
-            "https://parceiro.example.com/pedidos", "POST", {}, pedido,
-            30, 3, token, True, None, False,
-        )
-        return self._http.enviar(requisicao)
+    def montar_qrcode_payload(self, contato: dict) -> dict:
+        dados = {"nome": contato["nome"], "telefone": contato["telefone"], "email": contato["email"]}
+        if contato.get("empresa"):
+            dados["empresa"] = contato["empresa"]
+        if contato.get("cargo"):
+            dados["cargo"] = contato["cargo"]
+        return dados
